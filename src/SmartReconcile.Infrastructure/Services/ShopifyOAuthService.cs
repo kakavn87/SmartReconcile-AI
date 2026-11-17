@@ -59,6 +59,33 @@ public sealed class ShopifyOAuthService(
         return new ShopifyOAuthResult(payload.AccessToken, payload.Scope ?? options.Scopes);
     }
 
+    public async Task RegisterWebhooksAsync(string shopDomain, string accessToken, CancellationToken cancellationToken)
+    {
+        var client = httpClientFactory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Shopify-Access-Token", accessToken);
+
+        const string mutation = """
+        mutation CreateWebhook($topic: WebhookSubscriptionTopic!, $uri: URI!) {
+          webhookSubscriptionCreate(topic: $topic, webhookSubscription: {callbackUrl: $uri, format: JSON}) {
+            userErrors { field message }
+          }
+        }
+        """;
+
+        var topics = new[] { "ORDERS_CREATE", "ORDERS_UPDATED", "ORDERS_PAID", "REFUNDS_CREATE" };
+        var callbackUrl = $"{options.AppUrl.TrimEnd('/')}/api/webhooks/shopify";
+
+        foreach (var topic in topics)
+        {
+            using var response = await client.PostAsJsonAsync(
+                $"https://{shopDomain}/admin/api/2026-10/graphql.json",
+                new { query = mutation, variables = new { topic, uri = callbackUrl } },
+                cancellationToken);
+
+            response.EnsureSuccessStatusCode();
+        }
+    }
+
     public bool VerifyCallbackHmac(IReadOnlyDictionary<string, string?> parameters)
     {
         if (!parameters.TryGetValue("hmac", out var supplied) || string.IsNullOrWhiteSpace(supplied))
