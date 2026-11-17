@@ -22,6 +22,9 @@ public static class DependencyInjection
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<IIntegrationConnectionRepository, IntegrationConnectionRepository>();
         services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
+        services.AddScoped<IFinancialCaseRepository, FinancialCaseRepository>();
+        services.AddScoped<IFinancialCaseLinkRepository, FinancialCaseLinkRepository>();
+        services.AddScoped<IFinancialGraphRepository, FinancialGraphRepository>();
         services.AddScoped<ISeedService, SeedService>();
         services.AddScoped<ICsvExporter, CsvExporter>();
         services.AddHttpClient<IAiAnalysisService, AiAnalysisService>();
