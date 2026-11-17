@@ -23,7 +23,18 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<SmartReconcileDbContext>();
 
     // The demo currently has no EF migration files.
-    // EnsureCreated creates the complete PostgreSQL schema on a fresh Neon database.
+    // A previous startup attempt may have created only EF's migration-history table.
+    // If the application tables are missing, remove that stale table so EnsureCreated
+    // can create the complete schema.
+    var ordersTableExists = await db.Database
+        .SqlQueryRaw<bool>(@"SELECT to_regclass('public.""Orders""') IS NOT NULL AS ""Value""")
+        .SingleAsync();
+
+    if (!ordersTableExists)
+    {
+        await db.Database.ExecuteSqlRawAsync(@"DROP TABLE IF EXISTS ""__EFMigrationsHistory"";");
+    }
+
     await db.Database.EnsureCreatedAsync();
 }
 
