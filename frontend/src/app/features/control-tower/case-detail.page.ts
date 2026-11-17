@@ -5,7 +5,7 @@ import { CaseDetailStore } from '../../core/stores/case-detail.store';
 
 @Component({
   standalone:true,
-  imports:[CurrencyPipe, DatePipe, DecimalPipe, RouterLink],
+  imports:[CurrencyPipe, DatePipe, RouterLink],
   changeDetection:ChangeDetectionStrategy.OnPush,
   providers:[CaseDetailStore],
   template: `
