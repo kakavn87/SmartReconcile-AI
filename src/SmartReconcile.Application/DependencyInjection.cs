@@ -14,6 +14,7 @@ public static class DependencyInjection
         services.AddScoped<IDiscrepancyService, DiscrepancyService>();
         services.AddScoped<IReconciliationService, ReconciliationService>();
         services.AddScoped<IDashboardService, DashboardService>();
+        services.AddScoped<IIntegrationService, IntegrationService>();
         return services;
     }
 }
