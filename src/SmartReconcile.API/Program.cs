@@ -3,6 +3,7 @@ using SmartReconcile.Application;
 using SmartReconcile.Infrastructure;
 using SmartReconcile.Infrastructure.Persistence;
 using SmartReconcile.API.Integrations;
+using SmartReconcile.Application.Abstractions;
 
 var builder = WebApplication.CreateBuilder(args);
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
