@@ -171,9 +171,9 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
         var sanitized = value
             .Replace("\r", " ", StringComparison.Ordinal)
             .Replace("\n", " ", StringComparison.Ordinal)
-            .Replace(""", """", StringComparison.Ordinal);
+            .Replace("\"", "\"\"", StringComparison.Ordinal);
 
-        return $""{sanitized}"";
+        return $"\"{sanitized}\"";
     }
 
     private sealed record DatevBooking(
