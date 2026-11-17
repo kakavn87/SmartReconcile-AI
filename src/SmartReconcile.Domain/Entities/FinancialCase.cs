@@ -7,6 +7,7 @@ public sealed class FinancialCase
     private FinancialCase() { }
 
     public Guid Id { get; private set; }
+    public string? CaseNumber { get; private set; }
     public Guid? DiscrepancyId { get; private set; }
     public FinancialCaseStatus Status { get; private set; }
     public FinancialCaseSeverity Severity { get; private set; }
@@ -25,9 +26,14 @@ public sealed class FinancialCase
         string description,
         decimal affectedAmount,
         string? rootCause = null)
-        => new()
+    {
+        var id = Guid.NewGuid();
+        var detectedAtUtc = DateTime.UtcNow;
+
+        return new()
         {
-            Id = Guid.NewGuid(),
+            Id = id,
+            CaseNumber = $"CASE-{detectedAtUtc:yyyy}-{id.ToString("N")[..6].ToUpperInvariant()}",
             DiscrepancyId = discrepancyId,
             Status = FinancialCaseStatus.Open,
             Severity = severity,
@@ -36,10 +42,17 @@ public sealed class FinancialCase
             RootCause = string.IsNullOrWhiteSpace(rootCause) ? null : rootCause.Trim(),
             AffectedAmount = decimal.Round(Math.Abs(affectedAmount), 2),
             Currency = "EUR",
-            DetectedAtUtc = DateTime.UtcNow
+            DetectedAtUtc = detectedAtUtc
         };
+    }
 
     public void StartInvestigation() => Status = FinancialCaseStatus.Investigating;
+
+    public void SetRootCause(string rootCause)
+    {
+        if (!string.IsNullOrWhiteSpace(rootCause))
+            RootCause = rootCause.Trim();
+    }
 
     public void Resolve(string? rootCause = null)
     {
