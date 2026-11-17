@@ -117,3 +117,29 @@ export interface FinancialCaseDetail {
   graphNodes:FinancialGraphNode[];
   rootCauseAnalysis:RootCauseAnalysis;
 }
+
+
+export type ChartOfAccounts = 'SKR03' | 'SKR04';
+
+export interface AccountingSettings {
+  id:string;
+  tenantId:string;
+  beraternummer:string;
+  mandantennummer:string;
+  chartOfAccounts:ChartOfAccounts;
+  revenueAccount19:string;
+  revenueAccount7:string;
+  paymentClearingAccount:string;
+  feeAccount:string;
+  updatedAtUtc:string;
+}
+
+export interface UpdateAccountingSettingsRequest {
+  beraternummer:string;
+  mandantennummer:string;
+  chartOfAccounts:ChartOfAccounts;
+  revenueAccount19:string;
+  revenueAccount7:string;
+  paymentClearingAccount:string;
+  feeAccount:string;
+}
