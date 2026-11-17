@@ -91,8 +91,10 @@ public sealed class ShopifyIntegrationController(
                 DateTime.UtcNow.AddSeconds(token.RefreshTokenExpiresInSeconds));
         }
 
-        return Redirect("/integrationen");
+        return Redirect($"{frontendUrl}/integrationen");
     }
+
+    private string frontendUrl => "https://smartreconcile-ai-frontend.onrender.com";
 
     private static readonly Guid DefaultTenantId =
         Guid.Parse("00000000-0000-0000-0000-000000000001");
