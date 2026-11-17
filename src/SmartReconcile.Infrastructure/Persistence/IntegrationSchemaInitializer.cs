@@ -35,6 +35,7 @@ public static class IntegrationSchemaInitializer
 
             CREATE TABLE IF NOT EXISTS "FinancialCases" (
                 "Id" uuid NOT NULL PRIMARY KEY,
+                "CaseNumber" varchar(30) NULL,
                 "DiscrepancyId" uuid NULL,
                 "Status" integer NOT NULL,
                 "Severity" integer NOT NULL,
@@ -46,6 +47,11 @@ public static class IntegrationSchemaInitializer
                 "DetectedAtUtc" timestamp with time zone NOT NULL,
                 "ResolvedAtUtc" timestamp with time zone NULL
             );
+            ALTER TABLE "FinancialCases"
+                ADD COLUMN IF NOT EXISTS "CaseNumber" varchar(30) NULL;
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_FinancialCases_CaseNumber"
+                ON "FinancialCases" ("CaseNumber")
+                WHERE "CaseNumber" IS NOT NULL;
             CREATE INDEX IF NOT EXISTS "IX_FinancialCases_DiscrepancyId_Status"
                 ON "FinancialCases" ("DiscrepancyId", "Status");
 
@@ -75,6 +81,19 @@ public static class IntegrationSchemaInitializer
             );
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_FinancialGraphRelations_Nodes_Relation"
                 ON "FinancialGraphRelations" ("FromNodeType", "FromEntityId", "ToNodeType", "ToEntityId", "RelationType");
+
+            CREATE TABLE IF NOT EXISTS "CaseAuditEvents" (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "FinancialCaseId" uuid NOT NULL,
+                "EventType" integer NOT NULL,
+                "Description" text NOT NULL,
+                "Actor" varchar(100) NOT NULL,
+                "CreatedAtUtc" timestamp with time zone NOT NULL,
+                CONSTRAINT "FK_CaseAuditEvents_FinancialCases_FinancialCaseId"
+                    FOREIGN KEY ("FinancialCaseId") REFERENCES "FinancialCases" ("Id") ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS "IX_CaseAuditEvents_FinancialCaseId_CreatedAtUtc"
+                ON "CaseAuditEvents" ("FinancialCaseId", "CreatedAtUtc" DESC);
 
             CREATE TABLE IF NOT EXISTS "WebhookEvents" (
                 "Id" uuid NOT NULL PRIMARY KEY,
