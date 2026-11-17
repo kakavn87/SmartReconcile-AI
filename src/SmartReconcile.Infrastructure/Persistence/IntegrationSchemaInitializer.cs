@@ -16,6 +16,9 @@ public static class IntegrationSchemaInitializer
             );
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_Tenants_Slug" ON "Tenants" ("Slug");
 
+            ALTER TABLE "Orders" ADD COLUMN IF NOT EXISTS "TaxRate" numeric(5,2) NOT NULL DEFAULT 19;
+            ALTER TABLE "Payments" ADD COLUMN IF NOT EXISTS "FeeAmount" numeric(18,2) NOT NULL DEFAULT 0;
+
             CREATE TABLE IF NOT EXISTS "AccountingSettings" (
                 "Id" uuid NOT NULL PRIMARY KEY,
                 "TenantId" uuid NOT NULL,
