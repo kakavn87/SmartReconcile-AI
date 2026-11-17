@@ -50,7 +50,9 @@ public sealed class ShopifyIntegrationController(
         if (tenant is null)
             return Problem("Demo-Mandant wurde nicht gefunden.");
 
-        var token = await oauth.ExchangeCodeAsync(shop.Trim().ToLowerInvariant(), code, cancellationToken);
+        var normalizedShop = shop.Trim().ToLowerInvariant();
+        var token = await oauth.ExchangeCodeAsync(normalizedShop, code, cancellationToken);
+        await oauth.RegisterWebhooksAsync(normalizedShop, token.AccessToken, cancellationToken);
         var existing = await connections.GetForTenantAsync(tenant.Id, cancellationToken);
         var connection = existing.FirstOrDefault(x =>
             x.Provider == IntegrationProvider.Shopify &&
