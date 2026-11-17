@@ -36,6 +36,7 @@ using (var scope = app.Services.CreateScope())
     }
 
     await db.Database.EnsureCreatedAsync();
+    await IntegrationSchemaInitializer.EnsureCreatedAsync(db);
 }
 
 app.UseSwagger();
