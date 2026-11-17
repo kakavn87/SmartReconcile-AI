@@ -97,6 +97,19 @@ public sealed class IntegrationConnection
 
     public void Disconnect() => Status = ConnectionStatus.Disconnected;
 
+    public void UpdateShopifyCredentials(string encryptedAccessToken, string scopes)
+    {
+        if (Provider != IntegrationProvider.Shopify)
+            throw new InvalidOperationException("Only Shopify connections can update Shopify credentials.");
+        if (string.IsNullOrWhiteSpace(encryptedAccessToken))
+            throw new ArgumentException("Encrypted access token is required.", nameof(encryptedAccessToken));
+
+        EncryptedAccessToken = encryptedAccessToken;
+        Scopes = scopes?.Trim() ?? string.Empty;
+        Status = ConnectionStatus.Connected;
+    }
+
+
     public void Revoke()
     {
         Status = ConnectionStatus.Revoked;
