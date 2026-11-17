@@ -639,3 +639,8 @@ GET /api/control-tower
 Case actions are reflected in the SignalStore without introducing a second source of truth.
 
 Shopify is intentionally not part of this phase. The existing reconciliation and integration foundation remains the source layer for the Control Tower.
+
+
+### Current implementation phase
+
+The current milestone focuses on making the existing reconciliation product itself strong and coherent before adding external commerce connectors. Shopify remains deliberately deferred until the Control Tower, dashboard and core workflows are stable.
