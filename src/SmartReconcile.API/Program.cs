@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SmartReconcile.Application;
 using SmartReconcile.Infrastructure;
 using SmartReconcile.Infrastructure.Persistence;
+using SmartReconcile.Infrastructure.Services;
 using SmartReconcile.API.Integrations;
 using SmartReconcile.Application.Abstractions;
 
