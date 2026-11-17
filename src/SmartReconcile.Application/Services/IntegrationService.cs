@@ -108,5 +108,5 @@ public sealed class IntegrationService(
         => new(x.Id, x.Name, x.Slug, x.IsActive, x.CreatedAtUtc);
 
     private static IntegrationConnectionDto MapConnection(IntegrationConnection x, string? apiKey)
-        => new(x.Id, x.TenantId, x.Provider, x.ExternalStoreId, x.DisplayName, x.Status, x.CreatedAtUtc, x.LastSeenAtUtc, apiKey);
+        => new(x.Id, x.TenantId, x.Provider, x.ExternalStoreId, x.DisplayName, x.Status, x.CreatedAtUtc, x.LastSeenAtUtc, x.ShopDomain, x.Scopes, x.LastSyncAtUtc, x.LastWebhookAtUtc, apiKey);
 }
