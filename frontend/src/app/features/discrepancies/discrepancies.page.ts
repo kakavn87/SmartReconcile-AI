@@ -6,7 +6,6 @@ import { DiscrepancyStore } from '../../core/stores/discrepancy.store';
 @Component({
   standalone:true,
   imports:[CurrencyPipe,DatePipe],
-  providers:[DiscrepancyStore],
   changeDetection:ChangeDetectionStrategy.OnPush,
   template:`
     <div class="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
