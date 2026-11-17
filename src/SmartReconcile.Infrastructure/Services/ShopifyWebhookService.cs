@@ -8,12 +8,14 @@ using SmartReconcile.Application.Abstractions;
 using SmartReconcile.Domain.Entities;
 using SmartReconcile.Domain.Enums;
 using SmartReconcile.Infrastructure.Persistence;
+using SmartReconcile.Domain.Enums;
 
 namespace SmartReconcile.Infrastructure.Services;
 
 public sealed class ShopifyWebhookService(
     IOptions<ShopifyOptions> options,
-    SmartReconcileDbContext db) : IShopifyWebhookService
+    SmartReconcileDbContext db,
+    IReconciliationService reconciliation) : IShopifyWebhookService
 {
     private readonly ShopifyOptions options = options.Value;
 
@@ -62,7 +64,14 @@ public sealed class ShopifyWebhookService(
 
         connection.MarkWebhookReceived();
         db.WebhookEvents.Add(webhook);
+
+        if (eventType is "orders/create" or "orders/updated" or "orders/paid")
+            await ImportOrderAsync(connection, rawBody, cancellationToken);
+
         await db.SaveChangesAsync(cancellationToken);
+        webhook.MarkProcessed();
+        await db.SaveChangesAsync(cancellationToken);
+        await reconciliation.ReconcileAsync(cancellationToken);
 
         return new ShopifyWebhookResult(
             webhook.Id,
@@ -70,6 +79,84 @@ public sealed class ShopifyWebhookService(
             true,
             eventType,
             shopDomain);
+    }
+
+    private async Task ImportOrderAsync(IntegrationConnection connection, string rawBody, CancellationToken cancellationToken)
+    {
+        using var document = JsonDocument.Parse(rawBody);
+        var root = document.RootElement;
+        if (!root.TryGetProperty("id", out var idProperty))
+            return;
+
+        var externalId = idProperty.ToString();
+        var orderName = root.TryGetProperty("name", out var name) ? name.GetString() ?? externalId : externalId;
+        var orderNumber = $"SHOPIFY-{orderName}";
+        var order = await db.Orders.FirstOrDefaultAsync(x => x.OrderNumber == orderNumber, cancellationToken);
+        var amount = ParseDecimal(root, "current_total_price", "total_price");
+        var email = root.TryGetProperty("email", out var emailProperty) ? emailProperty.GetString() ?? string.Empty : string.Empty;
+        var customerName = "Shopify Kunde";
+
+        if (root.TryGetProperty("customer", out var customer) && customer.ValueKind == JsonValueKind.Object)
+        {
+            var first = customer.TryGetProperty("first_name", out var firstName) ? firstName.GetString() : null;
+            var last = customer.TryGetProperty("last_name", out var lastName) ? lastName.GetString() : null;
+            customerName = $"{first} {last}".Trim();
+            if (string.IsNullOrWhiteSpace(customerName)) customerName = "Shopify Kunde";
+        }
+
+        var financialStatus = root.TryGetProperty("financial_status", out var financial)
+            ? financial.GetString()?.ToUpperInvariant() ?? "PENDING" : "PENDING";
+
+        if (order is null)
+        {
+            var status = financialStatus == "PAID" ? OrderStatus.Paid : OrderStatus.Pending;
+            var createdAt = root.TryGetProperty("created_at", out var created) && DateTime.TryParse(created.GetString(), out var parsedCreated)
+                ? parsedCreated.ToUniversalTime() : DateTime.UtcNow;
+            order = Order.Create(orderNumber, customerName, email, amount, status, createdAt);
+            await db.Orders.AddAsync(order, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        else if (financialStatus == "PAID")
+        {
+            order.ChangeStatus(OrderStatus.Paid);
+        }
+
+        if (!root.TryGetProperty("transactions", out var transactions) || transactions.ValueKind != JsonValueKind.Array)
+            return;
+
+        foreach (var transaction in transactions.EnumerateArray())
+        {
+            var kind = transaction.TryGetProperty("kind", out var kindProperty) ? kindProperty.GetString() : null;
+            var status = transaction.TryGetProperty("status", out var statusProperty) ? statusProperty.GetString() : null;
+            if (!string.Equals(status, "success", StringComparison.OrdinalIgnoreCase) ||
+                (!string.Equals(kind, "sale", StringComparison.OrdinalIgnoreCase) && !string.Equals(kind, "capture", StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            if (!transaction.TryGetProperty("id", out var transactionId))
+                continue;
+
+            var externalTransactionId = $"SHOPIFY-{transactionId}";
+            if (await db.Payments.AnyAsync(x => x.TransactionId == externalTransactionId, cancellationToken))
+                continue;
+
+            var transactionAmount = ParseDecimal(transaction, "amount");
+            var paidAt = transaction.TryGetProperty("created_at", out var txCreated) && DateTime.TryParse(txCreated.GetString(), out var parsedPaid)
+                ? parsedPaid.ToUniversalTime() : DateTime.UtcNow;
+
+            await db.Payments.AddAsync(Payment.Create(order.Id, externalTransactionId, transactionAmount, PaymentStatus.Succeeded, paidAt), cancellationToken);
+        }
+    }
+
+    private static decimal ParseDecimal(JsonElement root, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (root.TryGetProperty(name, out var value) &&
+                decimal.TryParse(value.ToString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+                return parsed;
+        }
+
+        return 0m;
     }
 
     private bool VerifyHmac(string rawBody, string supplied)
