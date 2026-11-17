@@ -71,7 +71,12 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
             e.HasIndex(x => new { x.TenantId, x.Provider, x.ExternalStoreId }).IsUnique();
             e.Property(x => x.ExternalStoreId).HasMaxLength(200).IsRequired();
             e.Property(x => x.DisplayName).HasMaxLength(200).IsRequired();
-            e.Property(x => x.ApiKeyHash).HasMaxLength(64).IsRequired();
+            e.Property(x => x.ApiKeyHash).HasMaxLength(64);
+            e.Property(x => x.ShopDomain).HasMaxLength(255);
+            e.Property(x => x.EncryptedAccessToken).HasColumnType("text");
+            e.Property(x => x.EncryptedRefreshToken).HasColumnType("text");
+            e.Property(x => x.Scopes).HasMaxLength(1000).IsRequired();
+            e.HasIndex(x => new { x.TenantId, x.Provider, x.ShopDomain });
             e.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
         });
 
