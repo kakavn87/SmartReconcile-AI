@@ -65,14 +65,20 @@ public sealed class ShopifyIntegrationController(
                 shop,
                 shop,
                 secretProtector.Protect(token.AccessToken),
-                token.Scope);
+                token.Scope,
+                secretProtector.Protect(token.RefreshToken),
+                DateTime.UtcNow.AddSeconds(token.ExpiresInSeconds),
+                DateTime.UtcNow.AddSeconds(token.RefreshTokenExpiresInSeconds));
             await connections.AddAsync(connection, cancellationToken);
         }
         else
         {
             connection.UpdateShopifyCredentials(
                 secretProtector.Protect(token.AccessToken),
-                token.Scope);
+                token.Scope,
+                secretProtector.Protect(token.RefreshToken),
+                DateTime.UtcNow.AddSeconds(token.ExpiresInSeconds),
+                DateTime.UtcNow.AddSeconds(token.RefreshTokenExpiresInSeconds));
         }
 
         return Redirect("/integrationen");
