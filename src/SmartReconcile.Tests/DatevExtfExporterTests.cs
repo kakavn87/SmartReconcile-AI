@@ -52,11 +52,11 @@ public sealed class DatevExtfExporterTests
 
         var text = Decode(bytes);
 
-        Assert.Contains(""EXTF";700;21;"Buchungsstapel";13;", text);
+        Assert.Contains("\"EXTF\";700;21;\"Buchungsstapel\";13;", text);
         Assert.Contains(";1001;10001;20260101;4;20261101;20261130;", text);
-        Assert.Contains(";"03";", text);
-        Assert.Contains("119,00;H;"";;;8400;1360;", text);
-        Assert.Contains("2,90;S;"";;;4970;1360;", text);
+        Assert.Contains(";\"03\";", text);
+        Assert.Contains("119,00;H;\"\";;;8400;1360;", text);
+        Assert.Contains("2,90;S;\"\";;;4970;1360;", text);
     }
 
     [Fact]
@@ -92,8 +92,8 @@ public sealed class DatevExtfExporterTests
 
         var text = Decode(bytes);
 
-        Assert.Contains("107,00;H;"";;;4300;1460;", text);
-        Assert.Contains(";"04";", text);
+        Assert.Contains("107,00;H;\"\";;;4300;1460;", text);
+        Assert.Contains(";\"04\";", text);
     }
 
     [Fact]
