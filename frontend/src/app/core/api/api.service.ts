@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { AiAnalysisRequest, AiAnalysisResponse, AccountingSettings, ControlTower, Dashboard, Discrepancy, FinancialCase, FinancialCaseDetail, FinancialGraphRelation, Invoice, Order, Payment, ReconciliationResult, FinancialNodeType, UpdateAccountingSettingsRequest } from '../models/api.models';
+import { AiAnalysisRequest, AiAnalysisResponse, AccountingSettings, ControlTower, Dashboard, Discrepancy, FinancialCase, FinancialCaseDetail, FinancialGraphRelation, Invoice, Order, Payment, ReconciliationResult, FinancialNodeType, UpdateAccountingSettingsRequest, IntegrationConnection, ShopifySyncResult } from '../models/api.models';
 
 export const API_BASE_URL = 'https://smartreconcile-ai-api.onrender.com/api';
 
@@ -26,6 +26,8 @@ export class ApiService {
   exportCsv() { return this.http.get(API_BASE_URL + '/export/csv', { responseType:'blob' }); }
   accountingSettings() { return this.http.get<AccountingSettings>(API_BASE_URL + '/settings/accounting'); }
   updateAccountingSettings(request:UpdateAccountingSettingsRequest) { return this.http.put<AccountingSettings>(API_BASE_URL + '/settings/accounting', request); }
+  integrationConnections(tenantId:string) { return this.http.get<IntegrationConnection[]>(API_BASE_URL + '/v1/integrations/tenants/' + tenantId + '/connections'); }
+  syncShopify(connectionId:string) { return this.http.post<ShopifySyncResult>(API_BASE_URL + '/integrations/shopify/' + connectionId + '/sync', {}); }
   exportDatev(from:string, to:string, onlyReconciled:boolean) {
     const params = { from, to, onlyReconciled };
     return this.http.get(API_BASE_URL + '/export/datev', { params, responseType:'blob', observe:'response' });

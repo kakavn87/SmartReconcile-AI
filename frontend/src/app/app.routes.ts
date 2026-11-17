@@ -9,4 +9,5 @@ export const routes:Routes=[{path:'',loadComponent:()=>import('./layout/app-shel
 {path:'rechnungen',loadComponent:()=>import('./features/invoices/invoices.page').then(m=>m.InvoicesPage)},
 {path:'abgleich',loadComponent:()=>import('./features/reconciliation/reconciliation.page').then(m=>m.ReconciliationPage)},
 {path:'einstellungen',loadComponent:()=>import('./features/settings/settings.page').then(m=>m.SettingsPage)},
+{path:'integrationen',loadComponent:()=>import('./features/integrations/integrationen.page').then(m=>m.IntegrationenPage)},
 {path:'**',redirectTo:'dashboard'}]}];
