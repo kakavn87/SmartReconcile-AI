@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SmartReconcile.Application;
 using SmartReconcile.Infrastructure;
-using SmartReconcile.Infrastructure.Persistence;
+using SmartReconcile.Infrastructure.Persistence;\nusing SmartReconcile.API.Integrations;\nusing Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
@@ -12,6 +12,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.Configure<ShopifyOptions>(builder.Configuration.GetSection("Shopify"));
 
 var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["http://localhost:4200"];
 builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod()));
