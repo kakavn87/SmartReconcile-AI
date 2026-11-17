@@ -3,7 +3,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
-using SmartReconcile.API.Integrations;
 using SmartReconcile.Application.Abstractions;
 
 namespace SmartReconcile.Infrastructure.Services;
