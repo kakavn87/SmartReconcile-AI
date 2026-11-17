@@ -22,6 +22,14 @@ public sealed class ShopifyIntegrationController(
             return BadRequest(new { message = "Ungültige Shopify-Shop-Domain." });
 
         var state = stateStore.Create();
+        Response.Cookies.Append("sr_shopify_oauth_state", state, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            MaxAge = TimeSpan.FromMinutes(10),
+            IsEssential = true
+        });
         return Redirect(oauth.BuildInstallUrl(shop.Trim().ToLowerInvariant(), state));
     }
 
@@ -40,7 +48,9 @@ public sealed class ShopifyIntegrationController(
         if (!oauth.IsValidShopDomain(shop))
             return BadRequest(new { message = "Ungültige Shopify-Shop-Domain." });
 
-        if (!stateStore.Consume(state))
+        var stateCookie = Request.Cookies["sr_shopify_oauth_state"];
+        Response.Cookies.Delete("sr_shopify_oauth_state");
+        if (!string.Equals(stateCookie, state, StringComparison.Ordinal) || !stateStore.Consume(state))
             return Unauthorized(new { message = "Ungültiger oder abgelaufener OAuth-State." });
 
         if (!oauth.VerifyCallbackHmac(query))
