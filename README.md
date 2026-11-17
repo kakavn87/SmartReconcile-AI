@@ -765,3 +765,43 @@ Der Schlüssel darf niemals in Git committed werden.
 - manuellen 50-Order-Sync
 
 Die Angular-Seite bleibt bis dahin unverändert.
+
+## 26. Shopify Integration — Phase 2
+
+Backend-Flow für Shopify OAuth, Webhooks, Adapter und manuellen Sync.
+
+### OAuth
+
+`GET /api/integrations/shopify/install?shop=demo.myshopify.com`
+
+Flow: Shopify Authorization → State/HMAC-Prüfung → Authorization-Code-Exchange → verschlüsseltes expiring Offline Access Token → Webhook Registration → `/integrationen`.
+
+Refresh Tokens werden ebenfalls verschlüsselt gespeichert.
+
+### Webhooks
+
+`POST /api/webhooks/shopify`
+
+Topics:
+- `orders/create`
+- `orders/updated`
+- `orders/paid`
+- `refunds/create`
+
+HMAC wird gegen den Raw Request Body geprüft. `X-Shopify-Webhook-Id` verhindert doppelte Verarbeitung.
+
+### Adapter
+
+`Shopify Order → Order → Shopify Transaction → Payment → Reconciliation → Discrepancy/Financial Case`
+
+### Manueller Sync
+
+`POST /api/integrations/shopify/{connectionId}/sync`
+
+Lädt die neuesten 50 Orders über die Shopify GraphQL Admin API und vermeidet doppelte Orders/Transactions.
+
+### Token Lifecycle
+
+Expiring Offline Tokens werden beim manuellen Sync bei Bedarf automatisch über den gespeicherten Refresh Token erneuert.
+
+Die Angular-Seite `/integrationen` bleibt für Phase 3 reserviert.
