@@ -7,7 +7,7 @@ import { ControlTowerStore } from '../../core/stores/control-tower.store';
   standalone:true,
   imports:[CurrencyPipe, DecimalPipe, RouterLink],
   changeDetection:ChangeDetectionStrategy.OnPush,
-  template:\`
+  template:`
     <div class="mb-8">
       <div class="mb-2 text-xs font-bold uppercase tracking-[.14em] text-blue-600">Financial Control Tower</div>
       <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
@@ -33,6 +33,6 @@ import { ControlTowerStore } from '../../core/stores/control-tower.store';
       </div>
       <div class="mt-6 grid gap-4 md:grid-cols-3"><a routerLink="/abweichungen" class="app-card p-5"><div class="text-xs font-bold uppercase tracking-wide text-slate-400">Abweichungen</div><div class="mt-2 text-lg font-extrabold text-slate-950">Alle Fälle →</div><div class="mt-1 text-sm text-slate-500">{{data.affectedAmount | currency:'EUR':'symbol':'1.2-2':'de-DE'}} betroffen</div></a><a routerLink="/bestellungen" class="app-card p-5"><div class="text-xs font-bold uppercase tracking-wide text-slate-400">Vertrieb</div><div class="mt-2 text-lg font-extrabold text-slate-950">Bestellungen →</div></a><a routerLink="/zahlungen" class="app-card p-5"><div class="text-xs font-bold uppercase tracking-wide text-slate-400">Liquidität</div><div class="mt-2 text-lg font-extrabold text-slate-950">Zahlungen →</div></a></div>
     } @else { <div class="app-card p-8 text-center text-sm text-slate-500">Keine Finanzdaten verfügbar.</div> }
-  \`
+  `
 })
 export class DashboardPage { readonly store=inject(ControlTowerStore); constructor(){this.store.load();} }
