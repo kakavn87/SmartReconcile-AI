@@ -1,4 +1,4 @@
-namespace SmartReconcile.API.Integrations;
+namespace SmartReconcile.Application.Abstractions;
 
 public sealed class ShopifyOptions
 {
