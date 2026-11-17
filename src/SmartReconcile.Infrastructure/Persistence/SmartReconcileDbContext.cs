@@ -12,6 +12,9 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<IntegrationConnection> IntegrationConnections => Set<IntegrationConnection>();
     public DbSet<WebhookEvent> WebhookEvents => Set<WebhookEvent>();
+    public DbSet<FinancialCase> FinancialCases => Set<FinancialCase>();
+    public DbSet<FinancialCaseLink> FinancialCaseLinks => Set<FinancialCaseLink>();
+    public DbSet<FinancialGraphRelation> FinancialGraphRelations => Set<FinancialGraphRelation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -67,6 +70,32 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
             e.Property(x => x.DisplayName).HasMaxLength(200).IsRequired();
             e.Property(x => x.ApiKeyHash).HasMaxLength(64).IsRequired();
             e.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FinancialCase>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.DiscrepancyId, x.Status });
+            e.Property(x => x.Title).HasMaxLength(300).IsRequired();
+            e.Property(x => x.Description).HasColumnType("text").IsRequired();
+            e.Property(x => x.RootCause).HasColumnType("text");
+            e.Property(x => x.AffectedAmount).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<FinancialCaseLink>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.FinancialCaseId, x.NodeType, x.EntityId });
+            e.Property(x => x.Role).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Label).HasMaxLength(300).IsRequired();
+            e.Property(x => x.Amount).HasPrecision(18, 2);
+            e.HasOne<FinancialCase>().WithMany().HasForeignKey(x => x.FinancialCaseId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FinancialGraphRelation>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.FromNodeType, x.FromEntityId, x.ToNodeType, x.ToEntityId, x.RelationType }).IsUnique();
         });
 
         modelBuilder.Entity<WebhookEvent>(e =>
