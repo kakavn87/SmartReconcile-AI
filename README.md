@@ -485,3 +485,44 @@ Schwerpunkte:
 - Cloud Deployment
 
 SmartReconcile AI verbindet einen realistischen Finance-Use-Case mit moderner Full-Stack-Architektur und dient als technische Portfolio-Anwendung.
+
+
+## Integrations & SaaS Architecture
+
+SmartReconcile is designed as a multi-tenant SaaS. The current demo uses generated data, while the integration architecture is prepared for real e-commerce and payment platforms.
+
+```
+Tenant
+  │
+  ├── Connection
+  │      │
+  │      └── Shopify / Shopware / WooCommerce / Amazon / Stripe...
+  │
+  └── WebhookEvents
+           │
+           ▼
+     Provider Adapter
+           │
+           ▼
+ Orders / Payments / Invoices
+           │
+           ▼
+ Reconciliation
+           │
+           ▼
+       AI Analysis
+```
+
+### Architecture explained
+
+- **Tenant** – represents one customer/company in the SaaS. Tenant isolation is the foundation for supporting multiple companies securely in one application.
+- **Connection** – represents a configured connection between a tenant and an external platform, for example a Shopify store, Shopware shop, WooCommerce installation or Stripe account.
+- **WebhookEvents** – stores incoming external events and provides idempotent processing. Duplicate deliveries can be detected without creating duplicate business records.
+- **Provider Adapter** – translates provider-specific payloads and authentication rules into SmartReconcile's common domain model. This keeps Shopify-specific logic separate from the reconciliation engine.
+- **Orders / Payments / Invoices** – the normalized business data used by SmartReconcile. Different providers can feed the same internal model.
+- **Reconciliation** – applies business rules to identify missing payments, orphaned payments, amount mismatches and duplicate invoices.
+- **AI Analysis** – explains detected discrepancies in simple German and can analyze invoice/document information to help accounting understand the cause and recommended next action.
+
+The long-term integration strategy is to provide a dedicated connector for each platform. A Shopify app, for example, can be installed by a merchant and configured to send relevant order and payment events securely to SmartReconcile. The same integration pattern can then be reused for Shopware, WooCommerce, Amazon, Stripe and other providers.
+
+The demo data remains available for presentations and development. Production tenants will receive their data through integrations, webhooks and synchronization processes rather than manual test-data entry.
