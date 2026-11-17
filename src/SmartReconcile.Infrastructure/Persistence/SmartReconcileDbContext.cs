@@ -16,6 +16,7 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
     public DbSet<FinancialCaseLink> FinancialCaseLinks => Set<FinancialCaseLink>();
     public DbSet<FinancialGraphRelation> FinancialGraphRelations => Set<FinancialGraphRelation>();
     public DbSet<CaseAuditEvent> CaseAuditEvents => Set<CaseAuditEvent>();
+    public DbSet<AccountingSettings> AccountingSettings => Set<AccountingSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -24,6 +25,7 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.OrderNumber).IsUnique();
             e.Property(x => x.TotalAmount).HasPrecision(18, 2);
+            e.Property(x => x.TaxRate).HasPrecision(5, 2);
             e.Property(x => x.OrderNumber).HasMaxLength(50).IsRequired();
             e.Property(x => x.CustomerName).HasMaxLength(200).IsRequired();
             e.Property(x => x.CustomerEmail).HasMaxLength(320).IsRequired();
@@ -108,6 +110,19 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
             e.Property(x => x.Description).HasColumnType("text").IsRequired();
             e.Property(x => x.Actor).HasMaxLength(100).IsRequired();
             e.HasOne<FinancialCase>().WithMany().HasForeignKey(x => x.FinancialCaseId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AccountingSettings>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.TenantId).IsUnique();
+            e.Property(x => x.Beraternummer).HasMaxLength(7).IsRequired();
+            e.Property(x => x.Mandantennummer).HasMaxLength(5).IsRequired();
+            e.Property(x => x.RevenueAccount19).HasMaxLength(8).IsRequired();
+            e.Property(x => x.RevenueAccount7).HasMaxLength(8).IsRequired();
+            e.Property(x => x.PaymentClearingAccount).HasMaxLength(8).IsRequired();
+            e.Property(x => x.FeeAccount).HasMaxLength(8).IsRequired();
+            e.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<WebhookEvent>(e =>
