@@ -1,7 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using SmartReconcile.Application;
 using SmartReconcile.Infrastructure;
-using SmartReconcile.Infrastructure.Persistence;\nusing SmartReconcile.API.Integrations;\nusing Microsoft.Extensions.Options;
+using SmartReconcile.Infrastructure.Persistence;
+using SmartReconcile.API.Integrations;
 
 var builder = WebApplication.CreateBuilder(args);
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
