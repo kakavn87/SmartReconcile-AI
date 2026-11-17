@@ -667,3 +667,22 @@ Phase 1 der Financial-Control-Tower-Weiterentwicklung ist implementiert:
 - bestehender Demo-Fallback für KI bleibt erhalten, sodass die API auch ohne OpenAI API Key stabil funktioniert
 
 Die Frontend-Implementierung des Case Detail View folgt in Phase 2. Shopify bleibt weiterhin bewusst zurückgestellt, bis der Financial Control Tower vollständig stabil ist.
+
+
+## Financial Case Detail View
+
+Phase 2 des Financial Control Towers ist implementiert:
+
+- Route `/control-tower/cases/:id`
+- eigenständiger Finanzfall-Detailbildschirm mit deutscher Finanz-/Buchhaltungsterminologie
+- Visual Entity Chain `Order → Payment → Invoice`
+- Zustände für vorhandene, abweichende und fehlende Entitäten (`Fehlt`)
+- Root-Cause- und KI-Untersuchungsbereich
+- Aktion `Automatisch korrigieren (Action)`
+- Lösung `Als gelöst markieren (Resolve)` mit Buchhalter-Notiz
+- Aktion `Ignorieren`
+- vertikale Audit Timeline mit Akteur und Zeitstempel
+- dedizierter Angular SignalStore für Laden, KI-Untersuchung, Auto-Fix, Resolve und Ignore
+- Dashboard-Finanzfälle führen direkt zur Detailansicht
+
+Die bestehende Shopify-Integration bleibt bewusst zurückgestellt.
