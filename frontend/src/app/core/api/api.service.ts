@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { AiAnalysisRequest, AiAnalysisResponse, ControlTower, Dashboard, Discrepancy, FinancialCase, FinancialCaseDetail, FinancialGraphRelation, Invoice, Order, Payment, ReconciliationResult, FinancialNodeType } from '../models/api.models';
+import { AiAnalysisRequest, AiAnalysisResponse, AccountingSettings, ControlTower, Dashboard, Discrepancy, FinancialCase, FinancialCaseDetail, FinancialGraphRelation, Invoice, Order, Payment, ReconciliationResult, FinancialNodeType, UpdateAccountingSettingsRequest } from '../models/api.models';
 
 export const API_BASE_URL = 'https://smartreconcile-ai-api.onrender.com/api';
 
@@ -24,5 +24,11 @@ export class ApiService {
   analyzeInvoice(request:AiAnalysisRequest) { return this.http.post<AiAnalysisResponse>(API_BASE_URL + '/invoices/analyze', request); }
   reconciliation() { return this.http.post<ReconciliationResult>(API_BASE_URL + '/reconciliation/run', {}); }
   exportCsv() { return this.http.get(API_BASE_URL + '/export/csv', { responseType:'blob' }); }
+  accountingSettings() { return this.http.get<AccountingSettings>(API_BASE_URL + '/settings/accounting'); }
+  updateAccountingSettings(request:UpdateAccountingSettingsRequest) { return this.http.put<AccountingSettings>(API_BASE_URL + '/settings/accounting', request); }
+  exportDatev(from:string, to:string, onlyReconciled:boolean) {
+    const params = { from, to, onlyReconciled };
+    return this.http.get(API_BASE_URL + '/export/datev', { params, responseType:'blob', observe:'response' });
+  }
   health() { return this.http.get(API_BASE_URL.replace('/api','') + '/health', { responseType:'text' }); }
 }
