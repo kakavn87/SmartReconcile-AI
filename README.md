@@ -526,3 +526,163 @@ Tenant
 The long-term integration strategy is to provide a dedicated connector for each platform. A Shopify app, for example, can be installed by a merchant and configured to send relevant order and payment events securely to SmartReconcile. The same integration pattern can then be reused for Shopware, WooCommerce, Amazon, Stripe and other providers.
 
 The demo data remains available for presentations and development. Production tenants will receive their data through integrations, webhooks and synchronization processes rather than manual test-data entry.
+
+## 23. Financial Control Tower
+
+SmartReconcile is evolving from a reconciliation demo into a **Financial Control Tower für E-Commerce-Unternehmen**. The product does not replace the shop, ERP or accounting system. It provides a control layer across them.
+
+### Financial Case
+
+A discrepancy becomes a first-class financial case instead of remaining only a table row.
+
+```
+Financial Case
+  │
+  ├── Discrepancy
+  ├── Order
+  ├── Payment
+  └── Invoice
+       │
+       ▼
+  Investigation
+       │
+       ├── Root Cause
+       ├── Affected Amount
+       └── Resolution
+```
+
+Cases support:
+
+- Open
+- Investigating
+- Resolved
+- Ignored
+
+Each case has a severity level and links to the underlying financial records.
+
+### Financial Graph
+
+The graph stores relationships between normalized financial records.
+
+```
+Order #10042
+    │
+    └── Payment #P991
+```
+
+The same graph model is designed to later connect payouts and bank transactions:
+
+```
+Order
+  ↓
+Payment
+  ↓
+Payout
+  ↓
+Bank Transaction
+```
+
+This creates a traceable financial chain across multiple providers.
+
+### System Health
+
+Integration connections are exposed as system-health signals. The Control Tower reports:
+
+- Healthy
+- Warning
+- Disconnected
+
+A connection without recent activity is surfaced instead of silently appearing operational.
+
+### Financial Integrity Score
+
+The Control Tower calculates a 0–100 score from collection coverage, affected open-case amount, case volume and critical cases.
+
+The score is a control signal, not an accounting number. It is designed to answer:
+
+> **Wie sicher sind die Finanzdaten meines Unternehmens aktuell?**
+
+### Control Tower API
+
+```
+GET  /api/control-tower
+GET  /api/control-tower/cases/{id}
+POST /api/control-tower/cases/{id}/investigate
+POST /api/control-tower/cases/{id}/resolve
+POST /api/control-tower/cases/{id}/ignore
+GET  /api/control-tower/graph/{nodeType}/{entityId}
+```
+
+The next connector target is Shopify. Shopify-specific OAuth, HMAC verification, encrypted access tokens and durable webhook processing will be implemented on top of this control layer rather than inside the core reconciliation engine.
+
+
+
+## 24. Financial Control Tower Frontend
+
+The Angular dashboard now uses the Control Tower API as the primary financial overview.
+
+The German dashboard shows:
+
+- **Finanzielle Integrität** — 0–100 control score
+- **Umsatz** — expected cash
+- **Zahlungseingang** — successfully collected payments
+- **Cash Gap** — difference between expected and actual collection
+- **Finanzfälle** — open and high-risk cases requiring attention
+- **Systemstatus** — health of connected integrations
+
+The frontend uses Angular Signals and NgRx SignalStore. The server remains authoritative and the dashboard loads its state from:
+
+```
+GET /api/control-tower
+```
+
+Case actions are reflected in the SignalStore without introducing a second source of truth.
+
+Shopify is intentionally not part of this phase. The existing reconciliation and integration foundation remains the source layer for the Control Tower.
+
+
+### Current implementation phase
+
+The current milestone focuses on making the existing reconciliation product itself strong and coherent before adding external commerce connectors. Shopify remains deliberately deferred until the Control Tower, dashboard and core workflows are stable.
+
+
+## Financial Case Detail & Audit Timeline
+
+Phase 1 der Financial-Control-Tower-Weiterentwicklung ist implementiert:
+
+- `CaseAuditEvent` mit den Ereignistypen `Detected`, `Investigated`, `ActionExecuted`, `Resolved` und `Ignored`
+- persistente Audit-Timeline in PostgreSQL über `CaseAuditEvents`
+- `FinancialCase.CaseNumber` für eine stabile fachliche Fallkennung
+- detaillierter Case-Endpunkt `GET /api/control-tower/cases/{id}`
+- `FinancialCaseDetailDto` mit:
+  - Stammdaten des Finanzfalls
+  - Audit-Timeline, neueste Ereignisse zuerst
+  - `Order`, `Payment` und `Invoice` als GraphNodes
+  - explizitem Status `Fehlt`, wenn eine verknüpfte Entität nicht vorhanden ist
+  - Root-Cause-Analyse und empfohlener Maßnahme
+- `POST /api/control-tower/cases/{id}/investigate` startet die KI-Ursachenanalyse und protokolliert das Ergebnis
+- `POST /api/control-tower/cases/{id}/auto-fix` führt unterstützte automatische Korrekturen aus und protokolliert die Maßnahme
+- `POST /api/control-tower/cases/{id}/resolve` protokolliert die Lösung inklusive optionaler Benutzer-Notiz
+- `POST /api/control-tower/cases/{id}/ignore` protokolliert das Ignorieren des Falls
+- bestehender Demo-Fallback für KI bleibt erhalten, sodass die API auch ohne OpenAI API Key stabil funktioniert
+
+Die Frontend-Implementierung des Case Detail View folgt in Phase 2. Shopify bleibt weiterhin bewusst zurückgestellt, bis der Financial Control Tower vollständig stabil ist.
+
+
+## Financial Case Detail View
+
+Phase 2 des Financial Control Towers ist implementiert:
+
+- Route `/control-tower/cases/:id`
+- eigenständiger Finanzfall-Detailbildschirm mit deutscher Finanz-/Buchhaltungsterminologie
+- Visual Entity Chain `Order → Payment → Invoice`
+- Zustände für vorhandene, abweichende und fehlende Entitäten (`Fehlt`)
+- Root-Cause- und KI-Untersuchungsbereich
+- Aktion `Automatisch korrigieren (Action)`
+- Lösung `Als gelöst markieren (Resolve)` mit Buchhalter-Notiz
+- Aktion `Ignorieren`
+- vertikale Audit Timeline mit Akteur und Zeitstempel
+- dedizierter Angular SignalStore für Laden, KI-Untersuchung, Auto-Fix, Resolve und Ignore
+- Dashboard-Finanzfälle führen direkt zur Detailansicht
+
+Die bestehende Shopify-Integration bleibt bewusst zurückgestellt.

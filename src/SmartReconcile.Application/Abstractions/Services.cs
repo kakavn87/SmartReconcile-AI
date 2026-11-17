@@ -48,6 +48,7 @@ public interface ISeedService
 public interface IAiAnalysisService
 {
     Task<AiAnalysisResponse> AnalyzeInvoiceAsync(AiAnalysisRequest request, CancellationToken cancellationToken);
+    Task<FinancialCaseAnalysisResponse> AnalyzeFinancialCaseAsync(FinancialCaseAnalysisRequest request, CancellationToken cancellationToken);
 }
 
 public interface ICsvExporter

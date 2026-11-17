@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { AiAnalysisRequest, AiAnalysisResponse, Dashboard, Discrepancy, Invoice, Order, Payment, ReconciliationResult } from '../models/api.models';
+import { AiAnalysisRequest, AiAnalysisResponse, ControlTower, Dashboard, Discrepancy, FinancialCase, FinancialCaseDetail, FinancialGraphRelation, Invoice, Order, Payment, ReconciliationResult, FinancialNodeType } from '../models/api.models';
 
 export const API_BASE_URL = 'https://smartreconcile-ai-api.onrender.com/api';
 
@@ -9,6 +9,13 @@ export class ApiService {
   private readonly http = inject(HttpClient);
 
   dashboard() { return this.http.get<Dashboard>(API_BASE_URL + '/dashboard'); }
+  controlTower() { return this.http.get<ControlTower>(API_BASE_URL + '/control-tower'); }
+  financialCase(id:string) { return this.http.get<FinancialCaseDetail>(API_BASE_URL + '/control-tower/cases/' + id); }
+  autoFixCase(id:string) { return this.http.post<FinancialCase>(API_BASE_URL + '/control-tower/cases/' + id + '/auto-fix', {}); }
+  investigateCase(id:string) { return this.http.post<FinancialCase>(API_BASE_URL + '/control-tower/cases/' + id + '/investigate', {}); }
+  resolveCase(id:string, rootCause:string|null, note:string|null = null) { return this.http.post<FinancialCase>(API_BASE_URL + '/control-tower/cases/' + id + '/resolve', { rootCause, note }); }
+  ignoreCase(id:string) { return this.http.post<FinancialCase>(API_BASE_URL + '/control-tower/cases/' + id + '/ignore', {}); }
+  financialGraph(nodeType:FinancialNodeType, entityId:string) { return this.http.get<FinancialGraphRelation[]>(API_BASE_URL + '/control-tower/graph/' + nodeType + '/' + entityId); }
   discrepancies() { return this.http.get<Discrepancy[]>(API_BASE_URL + '/discrepancies'); }
   updateDiscrepancyStatus(id:string, status:'Open'|'Resolved'|'Ignored') { return this.http.patch<Discrepancy>(API_BASE_URL + '/discrepancies/' + id + '/status', { status }); }
   orders() { return this.http.get<Order[]>(API_BASE_URL + '/orders'); }

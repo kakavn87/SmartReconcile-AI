@@ -36,6 +36,9 @@ public sealed class IntegrationConnectionRepository(SmartReconcileDbContext db) 
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(ct);
 
+    public Task<List<IntegrationConnection>> GetAllAsync(CancellationToken ct)
+        => db.IntegrationConnections.AsNoTracking().OrderBy(x => x.Provider).ThenBy(x => x.DisplayName).ToListAsync(ct);
+
     public async Task AddAsync(IntegrationConnection connection, CancellationToken ct)
     {
         await db.IntegrationConnections.AddAsync(connection, ct);

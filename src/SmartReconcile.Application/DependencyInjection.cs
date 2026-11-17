@@ -15,6 +15,7 @@ public static class DependencyInjection
         services.AddScoped<IReconciliationService, ReconciliationService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IIntegrationService, IntegrationService>();
+        services.AddScoped<IControlTowerService, ControlTowerService>();
         return services;
     }
 }
