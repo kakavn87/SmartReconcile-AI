@@ -51,6 +51,20 @@ public sealed class FinancialCaseLinkRepository(SmartReconcileDbContext db) : IF
         => await db.FinancialCaseLinks.AddRangeAsync(links, ct);
 }
 
+public sealed class CaseAuditEventRepository(SmartReconcileDbContext db) : ICaseAuditEventRepository
+{
+    public Task<List<CaseAuditEvent>> GetForCaseAsync(Guid financialCaseId, CancellationToken ct)
+        => db.CaseAuditEvents.AsNoTracking()
+            .Where(x => x.FinancialCaseId == financialCaseId)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToListAsync(ct);
+
+    public async Task AddAsync(CaseAuditEvent auditEvent, CancellationToken ct)
+        => await db.CaseAuditEvents.AddAsync(auditEvent, ct);
+
+    public Task SaveAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
+}
+
 public sealed class FinancialGraphRepository(SmartReconcileDbContext db) : IFinancialGraphRepository
 {
     public Task<bool> ExistsAsync(
