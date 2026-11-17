@@ -27,7 +27,7 @@ public sealed class IntegrationConnectionRepository(SmartReconcileDbContext db) 
 
     public Task<IntegrationConnection?> ResolveActiveByApiKeyHashAsync(string apiKeyHash, CancellationToken ct)
         => db.IntegrationConnections
-            .FirstOrDefaultAsync(x => x.ApiKeyHash == apiKeyHash && x.Status == SmartReconcile.Domain.Enums.ConnectionStatus.Active, ct);
+            .FirstOrDefaultAsync(x => x.ApiKeyHash == apiKeyHash && (x.Status == SmartReconcile.Domain.Enums.ConnectionStatus.Active || x.Status == SmartReconcile.Domain.Enums.ConnectionStatus.Connected), ct);
 
     public Task<List<IntegrationConnection>> GetForTenantAsync(Guid tenantId, CancellationToken ct)
         => db.IntegrationConnections
