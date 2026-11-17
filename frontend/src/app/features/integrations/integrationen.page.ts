@@ -135,7 +135,7 @@ export class IntegrationenPage {
 
   validShop() {
     const value = this.shopDomain().trim().toLowerCase();
-    return /^[a-z0-9-]+\\.myshopify\\.com$/.test(value);
+    return /^[a-z0-9-]+\.myshopify\.com$/.test(value);
   }
 
   load() {
