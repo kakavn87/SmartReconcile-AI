@@ -644,3 +644,26 @@ Shopify is intentionally not part of this phase. The existing reconciliation and
 ### Current implementation phase
 
 The current milestone focuses on making the existing reconciliation product itself strong and coherent before adding external commerce connectors. Shopify remains deliberately deferred until the Control Tower, dashboard and core workflows are stable.
+
+
+## Financial Case Detail & Audit Timeline
+
+Phase 1 der Financial-Control-Tower-Weiterentwicklung ist implementiert:
+
+- `CaseAuditEvent` mit den Ereignistypen `Detected`, `Investigated`, `ActionExecuted`, `Resolved` und `Ignored`
+- persistente Audit-Timeline in PostgreSQL über `CaseAuditEvents`
+- `FinancialCase.CaseNumber` für eine stabile fachliche Fallkennung
+- detaillierter Case-Endpunkt `GET /api/control-tower/cases/{id}`
+- `FinancialCaseDetailDto` mit:
+  - Stammdaten des Finanzfalls
+  - Audit-Timeline, neueste Ereignisse zuerst
+  - `Order`, `Payment` und `Invoice` als GraphNodes
+  - explizitem Status `Fehlt`, wenn eine verknüpfte Entität nicht vorhanden ist
+  - Root-Cause-Analyse und empfohlener Maßnahme
+- `POST /api/control-tower/cases/{id}/investigate` startet die KI-Ursachenanalyse und protokolliert das Ergebnis
+- `POST /api/control-tower/cases/{id}/auto-fix` führt unterstützte automatische Korrekturen aus und protokolliert die Maßnahme
+- `POST /api/control-tower/cases/{id}/resolve` protokolliert die Lösung inklusive optionaler Benutzer-Notiz
+- `POST /api/control-tower/cases/{id}/ignore` protokolliert das Ignorieren des Falls
+- bestehender Demo-Fallback für KI bleibt erhalten, sodass die API auch ohne OpenAI API Key stabil funktioniert
+
+Die Frontend-Implementierung des Case Detail View folgt in Phase 2. Shopify bleibt weiterhin bewusst zurückgestellt, bis der Financial Control Tower vollständig stabil ist.
