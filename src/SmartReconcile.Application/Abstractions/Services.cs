@@ -19,7 +19,6 @@ public interface IPaymentService
 public interface IInvoiceService
 {
     Task<IReadOnlyList<InvoiceDto>> GetAllAsync(CancellationToken cancellationToken);
-    Task<InvoiceDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task<InvoiceDto> CreateAsync(CreateInvoiceRequest request, CancellationToken cancellationToken);
 }
 
@@ -48,6 +47,7 @@ public interface ISeedService
 public interface IAiAnalysisService
 {
     Task<AiAnalysisResponse> AnalyzeInvoiceAsync(AiAnalysisRequest request, CancellationToken cancellationToken);
+    Task<FinancialCaseAnalysisResponse> AnalyzeFinancialCaseAsync(FinancialCaseAnalysisRequest request, CancellationToken cancellationToken);
 }
 
 public interface ICsvExporter
