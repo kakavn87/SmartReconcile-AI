@@ -615,3 +615,27 @@ GET  /api/control-tower/graph/{nodeType}/{entityId}
 
 The next connector target is Shopify. Shopify-specific OAuth, HMAC verification, encrypted access tokens and durable webhook processing will be implemented on top of this control layer rather than inside the core reconciliation engine.
 
+
+
+## 24. Financial Control Tower Frontend
+
+The Angular dashboard now uses the Control Tower API as the primary financial overview.
+
+The German dashboard shows:
+
+- **Finanzielle Integrität** — 0–100 control score
+- **Umsatz** — expected cash
+- **Zahlungseingang** — successfully collected payments
+- **Cash Gap** — difference between expected and actual collection
+- **Finanzfälle** — open and high-risk cases requiring attention
+- **Systemstatus** — health of connected integrations
+
+The frontend uses Angular Signals and NgRx SignalStore. The server remains authoritative and the dashboard loads its state from:
+
+```
+GET /api/control-tower
+```
+
+Case actions are reflected in the SignalStore without introducing a second source of truth.
+
+Shopify is intentionally not part of this phase. The existing reconciliation and integration foundation remains the source layer for the Control Tower.
