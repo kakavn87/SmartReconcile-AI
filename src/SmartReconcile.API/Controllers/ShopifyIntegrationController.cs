@@ -66,7 +66,7 @@ public sealed class ShopifyIntegrationController(
                 shop,
                 secretProtector.Protect(token.AccessToken),
                 token.Scope,
-                secretProtector.Protect(token.RefreshToken),
+                string.IsNullOrWhiteSpace(token.RefreshToken) ? null : secretProtector.Protect(token.RefreshToken),
                 DateTime.UtcNow.AddSeconds(token.ExpiresInSeconds),
                 DateTime.UtcNow.AddSeconds(token.RefreshTokenExpiresInSeconds));
             await connections.AddAsync(connection, cancellationToken);
