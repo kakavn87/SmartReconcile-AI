@@ -686,3 +686,84 @@ Phase 2 des Financial Control Towers ist implementiert:
 - Dashboard-Finanzfälle führen direkt zur Detailansicht
 
 Die bestehende Shopify-Integration bleibt bewusst zurückgestellt.
+
+
+## 25. DATEV EXTF Buchungsstapel & Accounting Settings — Phase 1
+
+Phase 1 des DATEV-Ausbaus ist implementiert:
+
+### Accounting Settings
+
+Die Buchhaltungseinstellungen werden tenantbezogen gespeichert:
+
+- Beraternummer — Standard 1001
+- Mandantennummer — Standard 10001
+- SKR03 / SKR04
+- Erlöskonto 19 % — 8400 / 4400
+- Erlöskonto 7 % — 8300 / 4300
+- Zahlungs-Verrechnungskonto — 1360 / 1460
+- Zahlungsgebühren — 4970 / 6855
+
+API:
+
+GET /api/settings/accounting
+PUT /api/settings/accounting
+
+Der aktuelle Demo-Kontext verwendet den ersten aktiven Tenant. Falls noch kein Tenant existiert, wird ein Demo-Tenant mit den Standard-Buchhaltungseinstellungen angelegt.
+
+### DATEV EXTF
+
+Der neue Export ist verfügbar über:
+
+GET /api/export/datev?from=2026-01-01&to=2026-01-31&onlyReconciled=true
+
+Der Export erzeugt einen technischen DATEV-Buchungsstapel mit:
+
+- EXTF Header Version 700
+- Formatkategorie 21
+- Buchungsstapel Formatversion 13
+- Berater- und Mandantennummer
+- Wirtschaftsjahresbeginn und Exportperiode
+- SKR03/SKR04-Kennung
+- vollständiger DATEV-Buchungssatzstruktur
+- Semikolon als Feldtrenner
+- Dezimalkomma
+- CR/LF-Zeilenenden
+- Windows-1252
+- TTMM als Belegdatum
+- Umsatzbuchungen auf konfigurierte Erlöskonten
+- Zahlungsgebühren auf das konfigurierte Gebührenkonto
+- Zahlungs-Verrechnung über das konfigurierte Clearingkonto
+
+Standard-Erlöskonten wie 8400, 8300, 4400 und 4300 werden als DATEV-Automatikkonten exportiert; das BU-Feld bleibt deshalb leer.
+
+### Reconciliation Filter
+
+Mit onlyReconciled=true werden nur Buchungen exportiert, wenn:
+
+- eine erfolgreiche Zahlung vorhanden ist,
+- Bestell- und Zahlungsbetrag bis auf 0,01 € übereinstimmen,
+- kein offener Finanzfall für Bestellung oder Zahlung existiert.
+
+### Datenmodell
+
+Für den DATEV-Export wurden außerdem:
+
+- Umsatzsteuersatz 7 % / 19 % an der Bestellung
+- Zahlungsgebühr am Payment
+
+als persistente Geschäftsdaten ergänzt.
+
+### Tests
+
+Der Backend-Testumfang enthält DATEV-Tests für:
+
+- EXTF Header
+- SKR03
+- SKR04
+- 7-%-Erlöskonto
+- Zahlungsgebühren
+- onlyReconciled
+- ungültige Datumsbereiche
+
+Die technische DATEV-Struktur orientiert sich an der aktuellen DATEV-Formatbeschreibung. Vor einer produktiven Steuerberatung-/DATEV-Freigabe müssen die erzeugten Musterdateien zusätzlich mit dem DATEV-Prüfprogramm und in einem DATEV-Testbestand validiert werden.
