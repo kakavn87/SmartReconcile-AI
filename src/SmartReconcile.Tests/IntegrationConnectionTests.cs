@@ -50,15 +50,7 @@ public sealed class AesGcmSecretProtectorTests
     [Fact]
     public void ProtectAndUnprotect_RoundTripsWithoutStoringPlaintext()
     {
-        var key = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Security:EncryptionKey"] = key
-            })
-            .Build();
-
-        var protector = new AesGcmSecretProtector(configuration);
+        var protector = new AesGcmSecretProtector(RandomNumberGenerator.GetBytes(32));
         const string secret = "shpat_sensitive_access_token";
 
         var protectedValue = protector.Protect(secret);
