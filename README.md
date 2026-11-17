@@ -686,3 +686,82 @@ Phase 2 des Financial Control Towers ist implementiert:
 - Dashboard-Finanzfälle führen direkt zur Detailansicht
 
 Die bestehende Shopify-Integration bleibt bewusst zurückgestellt.
+
+## 25. Multi-Tenant Store Connections — Phase 1
+
+Die bestehende Integrationsbasis wurde für echte Store-Verbindungen erweitert, ohne die vorhandenen Tenant-, Connection- und Webhook-Modelle zu duplizieren.
+
+### Store Connection
+
+`IntegrationConnection` bildet jetzt die gemeinsame Store-Connection-Abstraktion:
+
+- Tenant-Zuordnung
+- Provider (`Shopify`, `Shopware`, `WooCommerce`, `Amazon`, `Stripe`, `PayPal`, `Demo`)
+- Store-Domain
+- verschlüsseltes Access Token
+- angeforderte Scopes
+- Verbindungsstatus
+- letzter Sync
+- letzter Webhook
+- bestehende API-Key-Unterstützung für generische Integrationen
+
+Shopify-Zugangstoken werden **verschlüsselt gespeichert** und niemals als Hash oder Klartext persistiert.
+
+### Shopify-Konfiguration
+
+Die API unterstützt folgende Konfiguration:
+
+```text
+Shopify__ClientId
+Shopify__ClientSecret
+Shopify__Scopes
+Shopify__AppUrl
+Security__EncryptionKey
+```
+
+Standard-Scopes:
+
+```text
+read_orders,read_shopify_payments_payouts
+```
+
+`read_orders` deckt die benötigten Bestellungen und Order Transactions ab. `read_shopify_payments_payouts` ist der passende Scope für Shopify-Payout-Daten. Die tatsächlichen Shopify-Berechtigungen werden in der späteren OAuth-Phase validiert.
+
+### Connection Health
+
+Der Control Tower verwendet für Shopify echte Verbindungsaktivität:
+
+```text
+Connected
+   │
+   ├── aktueller Webhook → Healthy
+   ├── keine Aktivität / veraltet → Warning
+   └── getrennt → Disconnected
+```
+
+Damit basiert **System Health** nicht mehr nur auf einem generischen API-Key-Heartbeat.
+
+### Demo Tenant
+
+Beim Start wird ein deterministischer `demo`-Tenant angelegt, falls noch keiner existiert. Bestehende Tenants und Demo-Daten bleiben erhalten.
+
+### Secret Protection
+
+Access Tokens werden mit AES-256-GCM verschlüsselt. Der Schlüssel wird ausschließlich über die Server-Konfiguration bzw. Environment Variable bereitgestellt.
+
+Der Schlüssel darf niemals in Git committed werden.
+
+### Nächster Schritt
+
+**Phase 2** implementiert darauf aufbauend:
+
+- Shopify OAuth
+- State/CSRF-Schutz
+- HMAC-Prüfung
+- Access-Token-Austausch
+- Shopify Webhooks
+- Idempotenz
+- Shopify Adapter
+- manuellen 50-Order-Sync
+
+Die Angular-Seite bleibt bis dahin unverändert.
