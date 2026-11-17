@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { AccountingSettingsStore } from '../../core/stores/accounting-settings.store';
 import { ChartOfAccounts, UpdateAccountingSettingsRequest } from '../../core/models/api.models';
 
 @Component({
   standalone:true,
+  imports:[DatePipe],
   changeDetection:ChangeDetectionStrategy.OnPush,
   providers:[AccountingSettingsStore],
   template:`
