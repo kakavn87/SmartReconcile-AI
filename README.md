@@ -767,3 +767,37 @@ Der Backend-Testumfang enthält DATEV-Tests für:
 - ungültige Datumsbereiche
 
 Die technische DATEV-Struktur orientiert sich an der aktuellen DATEV-Formatbeschreibung. Vor einer produktiven Steuerberatung-/DATEV-Freigabe müssen die erzeugten Musterdateien zusätzlich mit dem DATEV-Prüfprogramm und in einem DATEV-Testbestand validiert werden.
+
+
+## 26. DATEV Accounting Settings & Export — Phase 2
+
+Die Angular-Oberfläche für die DATEV-Funktionen ist implementiert:
+
+### Buchhaltungseinstellungen
+
+Unter `/einstellungen` stehen jetzt:
+
+- Beraternummer
+- Mandantennummer
+- Kontenrahmen SKR03 / SKR04
+- Erlöskonto 19 %
+- Erlöskonto 7 %
+- Zahlungsverkehr / Clearing
+- Gebührenkonto
+- Speichern über `PUT /api/settings/accounting`
+
+Beim Wechsel zwischen SKR03 und SKR04 werden die Standardkonten automatisch vorgeschlagen.
+
+### DATEV Export
+
+Der Bereich **DATEV – Buchungsstapel exportieren** bietet:
+
+- Zeitraum Von / Bis
+- Option **Nur abgestimmte Buchungen exportieren**
+- Erstellung und Download des EXTF-Buchungsstapels
+- Windows-1252-Decodierung im Browser
+- Buchungsvorschau nach erfolgreichem Export
+
+Die Vorschau zeigt unter anderem Betrag, Soll/Haben, Konto, Gegenkonto und Belegnummer.
+
+Der Backend-Export bleibt die autoritative Quelle für die tatsächliche DATEV-Datei. Die Oberfläche dient zur Konfiguration, Ausführung und schnellen Plausibilitätskontrolle.
