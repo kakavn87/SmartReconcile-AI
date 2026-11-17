@@ -1,7 +1,79 @@
 @import "tailwindcss";
-:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111827;background:#f5f7fa;font-synthesis:none}
-html,body{margin:0;min-height:100%;background:#f5f7fa}
-button,input,select{font:inherit}button{cursor:pointer}
-.app-card{border:1px solid #e5e7eb;border-radius:14px;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.03)}
-.status-open{background:#fff7ed;color:#c2410c}.status-resolved{background:#ecfdf5;color:#047857}.status-ignored{background:#f3f4f6;color:#4b5563}
-.badge{display:inline-flex;align-items:center;border-radius:999px;padding:.25rem .6rem;font-size:.75rem;font-weight:600}
+
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #0f172a;
+  background: #f4f7fb;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at 80% 0%, rgba(59,130,246,.08), transparent 28rem),
+    #f4f7fb;
+}
+
+body { color: #0f172a; }
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+
+.app-card {
+  border: 1px solid #e5eaf1;
+  border-radius: 18px;
+  background: rgba(255,255,255,.92);
+  box-shadow: 0 8px 30px rgba(15,23,42,.045);
+}
+
+.app-card-hover {
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.app-card-hover:hover {
+  transform: translateY(-1px);
+  border-color: #d7dee9;
+  box-shadow: 0 14px 36px rgba(15,23,42,.08);
+}
+
+.status-open { background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; }
+.status-resolved { background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
+.status-ignored { background:#f8fafc; color:#64748b; border:1px solid #e2e8f0; }
+
+.badge {
+  display:inline-flex;
+  align-items:center;
+  border-radius:999px;
+  padding:.3rem .65rem;
+  font-size:.72rem;
+  font-weight:700;
+  letter-spacing:.01em;
+}
+
+.app-input {
+  width:100%;
+  border:1px solid #dbe2ea;
+  border-radius:12px;
+  background:#fff;
+  padding:.65rem .8rem;
+  outline:none;
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+.app-input:focus {
+  border-color:#94a3b8;
+  box-shadow:0 0 0 4px rgba(59,130,246,.08);
+}
+
+.app-button {
+  border-radius:12px;
+  padding:.65rem .9rem;
+  font-size:.82rem;
+  font-weight:700;
+  transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.app-button:hover { transform:translateY(-1px); }
+
+::selection {
+  background:#dbeafe;
+  color:#1e3a8a;
+}
