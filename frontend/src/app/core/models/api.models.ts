@@ -143,3 +143,31 @@ export interface UpdateAccountingSettingsRequest {
   paymentClearingAccount:string;
   feeAccount:string;
 }
+
+
+export type IntegrationProvider = 'Shopify' | 'Shopware' | 'WooCommerce' | 'Amazon' | 'Stripe' | 'PayPal' | 'Custom';
+export type ConnectionStatus = 'Connected' | 'Warning' | 'Disconnected' | 'Active' | 'Revoked';
+
+export interface IntegrationConnection {
+  id:string;
+  tenantId:string;
+  provider:IntegrationProvider;
+  externalStoreId:string;
+  displayName:string;
+  status:ConnectionStatus;
+  createdAtUtc:string;
+  lastSeenAtUtc:string|null;
+  shopDomain:string|null;
+  scopes:string;
+  lastSyncAtUtc:string|null;
+  lastWebhookAtUtc:string|null;
+  apiKey:string|null;
+}
+
+export interface ShopifySyncResult {
+  connectionId:string;
+  ordersImported:number;
+  paymentsImported:number;
+  skippedOrders:number;
+  completedAtUtc:string;
+}
