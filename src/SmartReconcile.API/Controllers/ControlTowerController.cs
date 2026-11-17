@@ -14,9 +14,9 @@ public sealed class ControlTowerController(IControlTowerService service) : Contr
         => Ok(await service.GetOverviewAsync(cancellationToken));
 
     [HttpGet("cases/{id:guid}")]
-    public async Task<ActionResult<FinancialCaseDto>> GetCase(Guid id, CancellationToken cancellationToken)
+    public async Task<ActionResult<FinancialCaseDetailDto>> GetCase(Guid id, CancellationToken cancellationToken)
     {
-        var result = await service.GetCaseAsync(id, cancellationToken);
+        var result = await service.GetCaseDetailAsync(id, cancellationToken);
         return result is null ? NotFound() : Ok(result);
     }
 
@@ -27,13 +27,20 @@ public sealed class ControlTowerController(IControlTowerService service) : Contr
         return result is null ? NotFound() : Ok(result);
     }
 
+    [HttpPost("cases/{id:guid}/auto-fix")]
+    public async Task<ActionResult<FinancialCaseDto>> AutoFix(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await service.AutoFixAsync(id, cancellationToken);
+        return result is null ? NotFound() : Ok(result);
+    }
+
     [HttpPost("cases/{id:guid}/resolve")]
     public async Task<ActionResult<FinancialCaseDto>> Resolve(
         Guid id,
         [FromBody] ResolveFinancialCaseRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await service.ResolveAsync(id, request.RootCause, cancellationToken);
+        var result = await service.ResolveAsync(id, request.RootCause, request.Note, cancellationToken);
         return result is null ? NotFound() : Ok(result);
     }
 
@@ -45,11 +52,11 @@ public sealed class ControlTowerController(IControlTowerService service) : Contr
     }
 
     [HttpGet("graph/{nodeType}/{entityId:guid}")]
-    public async Task<ActionResult<List<FinancialGraphRelationDto>>> Graph(
+    public async Task<ActionResult<List<FinancialGraphRelationDto>> Graph(
         FinancialNodeType nodeType,
         Guid entityId,
         CancellationToken cancellationToken)
         => Ok(await service.GetGraphAsync(nodeType, entityId, cancellationToken));
 }
 
-public sealed record ResolveFinancialCaseRequest(string? RootCause);
+public sealed record ResolveFinancialCaseRequest(string? RootCause, string? Note);
