@@ -19,6 +19,7 @@ public interface IPaymentService
 public interface IInvoiceService
 {
     Task<IReadOnlyList<InvoiceDto>> GetAllAsync(CancellationToken cancellationToken);
+    Task<InvoiceDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task<InvoiceDto> CreateAsync(CreateInvoiceRequest request, CancellationToken cancellationToken);
 }
 
