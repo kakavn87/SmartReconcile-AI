@@ -52,7 +52,7 @@ public sealed class ControlTowerController(IControlTowerService service) : Contr
     }
 
     [HttpGet("graph/{nodeType}/{entityId:guid}")]
-    public async Task<ActionResult<List<FinancialGraphRelationDto>> Graph(
+    public async Task<ActionResult<List<FinancialGraphRelationDto>>> Graph(
         FinancialNodeType nodeType,
         Guid entityId,
         CancellationToken cancellationToken)
