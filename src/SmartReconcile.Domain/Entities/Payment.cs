@@ -40,4 +40,6 @@ public sealed class Payment
             PaidAtUtc = paidAtUtc
         };
     }
+
+    public void ChangeStatus(PaymentStatus status) => Status = status;
 }

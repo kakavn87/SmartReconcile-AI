@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { CurrencyPipe, DecimalPipe } from '@angular/common';
+import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ControlTowerStore } from '../../core/stores/control-tower.store';
 
 @Component({
   standalone:true,
-  imports:[CurrencyPipe, DecimalPipe, RouterLink],
+  imports:[CurrencyPipe, DatePipe, DecimalPipe, RouterLink],
   changeDetection:ChangeDetectionStrategy.OnPush,
   template:`
     <div class="mb-8">
@@ -48,7 +48,7 @@ import { ControlTowerStore } from '../../core/stores/control-tower.store';
             </div>
           }
         </div>
-        <div class="app-card p-6"><div class="text-xs font-bold uppercase tracking-wide text-slate-400">Systemstatus</div><h2 class="mt-1 text-lg font-extrabold text-slate-950">Integrationen</h2><div class="mt-5 space-y-3">@for (system of data.systemHealth; track system.connectionId ?? system.name) { <div class="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3"><div><div class="text-sm font-bold text-slate-800">{{system.name}}</div><div class="text-xs text-slate-400">{{system.provider}}</div></div><span class="rounded-full px-2.5 py-1 text-[10px] font-bold" [class.bg-emerald-50]="system.status === 'Healthy'" [class.text-emerald-700]="system.status === 'Healthy'" [class.bg-amber-50]="system.status === 'Warning'" [class.text-amber-700]="system.status === 'Warning'" [class.bg-red-50]="system.status === 'Disconnected'" [class.text-red-700]="system.status === 'Disconnected'">{{system.status === 'Healthy' ? 'Aktiv' : system.status === 'Warning' ? 'Warnung' : 'Getrennt'}}</span></div> } @empty { <div class="rounded-xl bg-slate-50 p-5 text-sm text-slate-500">Noch keine Integrationen konfiguriert.</div> }</div></div>
+        <div class="app-card p-6"><div class="text-xs font-bold uppercase tracking-wide text-slate-400">Systemstatus</div><h2 class="mt-1 text-lg font-extrabold text-slate-950">Integrationen</h2><div class="mt-5 space-y-3">@for (system of data.systemHealth; track system.connectionId ?? system.name) { <div class="flex items-center justify-between gap-4 rounded-xl bg-slate-50 px-4 py-3"><div class="min-w-0"><div class="flex items-center gap-2"><div class="text-sm font-bold text-slate-800">{{system.name}}</div><span class="text-[10px] font-bold uppercase tracking-wide text-slate-400">{{system.provider}}</span></div><div class="mt-1 text-xs text-slate-400">{{system.detail ?? 'Letzte Aktivität'}}{{system.lastSeenAtUtc ? ' · ' + (system.lastSeenAtUtc | date:'dd.MM.yyyy HH:mm') : ''}}</div></div><span class="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold" [class.bg-emerald-50]="system.status === 'Healthy'" [class.text-emerald-700]="system.status === 'Healthy'" [class.bg-amber-50]="system.status === 'Warning'" [class.text-amber-700]="system.status === 'Warning'" [class.bg-red-50]="system.status === 'Disconnected'" [class.text-red-700]="system.status === 'Disconnected'">{{system.status === 'Healthy' ? 'Aktiv' : system.status === 'Warning' ? 'Warnung' : 'Getrennt'}}</span></div> } @empty { <div class="rounded-xl bg-slate-50 p-5 text-sm text-slate-500">Noch keine Integrationen konfiguriert.</div> }</div></div>
       </div>
       <div class="mt-6 grid gap-4 md:grid-cols-3"><a routerLink="/abweichungen" class="app-card p-5"><div class="text-xs font-bold uppercase tracking-wide text-slate-400">Abweichungen</div><div class="mt-2 text-lg font-extrabold text-slate-950">Alle Fälle →</div><div class="mt-1 text-sm text-slate-500">{{data.affectedAmount | currency:'EUR':'symbol':'1.2-2':'de-DE'}} betroffen</div></a><a routerLink="/bestellungen" class="app-card p-5"><div class="text-xs font-bold uppercase tracking-wide text-slate-400">Vertrieb</div><div class="mt-2 text-lg font-extrabold text-slate-950">Bestellungen →</div></a><a routerLink="/zahlungen" class="app-card p-5"><div class="text-xs font-bold uppercase tracking-wide text-slate-400">Liquidität</div><div class="mt-2 text-lg font-extrabold text-slate-950">Zahlungen →</div></a></div>
     } @else { <div class="app-card p-8 text-center text-sm text-slate-500">Keine Finanzdaten verfügbar.</div> }
