@@ -11,10 +11,15 @@ public sealed class IntegrationConnection
     public IntegrationProvider Provider { get; private set; }
     public string ExternalStoreId { get; private set; } = string.Empty;
     public string DisplayName { get; private set; } = string.Empty;
-    public string ApiKeyHash { get; private set; } = string.Empty;
+    public string? ApiKeyHash { get; private set; }
+    public string? ShopDomain { get; private set; }
+    public string? EncryptedAccessToken { get; private set; }
+    public string Scopes { get; private set; } = string.Empty;
     public ConnectionStatus Status { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime? LastSeenAtUtc { get; private set; }
+    public DateTime? LastSyncAtUtc { get; private set; }
+    public DateTime? LastWebhookAtUtc { get; private set; }
 
     public static IntegrationConnection Create(
         Guid tenantId,
@@ -34,12 +39,67 @@ public sealed class IntegrationConnection
             Provider = provider,
             ExternalStoreId = externalStoreId.Trim(),
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? externalStoreId.Trim() : displayName.Trim(),
-            ApiKeyHash = apiKeyHash,
+            ApiKeyHash = apiKeyHash.Trim().ToLowerInvariant(),
             Status = ConnectionStatus.Active,
             CreatedAtUtc = DateTime.UtcNow
         };
     }
 
-    public void Touch() => LastSeenAtUtc = DateTime.UtcNow;
-    public void Revoke() => Status = ConnectionStatus.Revoked;
+    public static IntegrationConnection CreateShopify(
+        Guid tenantId,
+        string shopDomain,
+        string displayName,
+        string encryptedAccessToken,
+        string scopes)
+    {
+        if (tenantId == Guid.Empty) throw new ArgumentException("Tenant id is required.", nameof(tenantId));
+        if (string.IsNullOrWhiteSpace(shopDomain)) throw new ArgumentException("Shop domain is required.", nameof(shopDomain));
+        if (string.IsNullOrWhiteSpace(encryptedAccessToken)) throw new ArgumentException("Encrypted access token is required.", nameof(encryptedAccessToken));
+
+        var normalizedDomain = shopDomain.Trim().ToLowerInvariant();
+
+        return new IntegrationConnection
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Provider = IntegrationProvider.Shopify,
+            ExternalStoreId = normalizedDomain,
+            DisplayName = string.IsNullOrWhiteSpace(displayName) ? normalizedDomain : displayName.Trim(),
+            ShopDomain = normalizedDomain,
+            EncryptedAccessToken = encryptedAccessToken,
+            Scopes = scopes?.Trim() ?? string.Empty,
+            Status = ConnectionStatus.Connected,
+            CreatedAtUtc = DateTime.UtcNow
+        };
+    }
+
+    public void Touch()
+    {
+        LastSeenAtUtc = DateTime.UtcNow;
+    }
+
+    public void MarkWebhookReceived()
+    {
+        LastWebhookAtUtc = DateTime.UtcNow;
+        LastSeenAtUtc = LastWebhookAtUtc;
+        Status = ConnectionStatus.Connected;
+    }
+
+    public void MarkSynced()
+    {
+        LastSyncAtUtc = DateTime.UtcNow;
+        LastSeenAtUtc = LastSyncAtUtc;
+        if (Status == ConnectionStatus.Warning)
+            Status = ConnectionStatus.Connected;
+    }
+
+    public void SetWarning() => Status = ConnectionStatus.Warning;
+
+    public void Disconnect() => Status = ConnectionStatus.Disconnected;
+
+    public void Revoke()
+    {
+        Status = ConnectionStatus.Revoked;
+        LastSeenAtUtc = null;
+    }
 }
