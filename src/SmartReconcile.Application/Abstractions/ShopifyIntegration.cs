@@ -29,7 +29,7 @@ public interface IShopifyClient
         CancellationToken cancellationToken);
 }
 
-public sealed record ShopifyOAuthResult(string AccessToken, string Scope);
+public sealed record ShopifyOAuthResult(string AccessToken, string Scope, string RefreshToken, int ExpiresInSeconds, int RefreshTokenExpiresInSeconds);
 
 public sealed record ShopifyWebhookResult(
     Guid EventId,
