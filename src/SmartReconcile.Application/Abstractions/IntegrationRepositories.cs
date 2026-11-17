@@ -15,6 +15,7 @@ public interface IIntegrationConnectionRepository
     Task<IntegrationConnection?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task<IntegrationConnection?> ResolveActiveByApiKeyHashAsync(string apiKeyHash, CancellationToken cancellationToken);
     Task<List<IntegrationConnection>> GetForTenantAsync(Guid tenantId, CancellationToken cancellationToken);
+    Task<List<IntegrationConnection>> GetAllAsync(CancellationToken cancellationToken);
     Task AddAsync(IntegrationConnection connection, CancellationToken cancellationToken);
 }
 
