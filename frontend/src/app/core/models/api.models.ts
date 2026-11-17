@@ -11,3 +11,63 @@ export interface Invoice { id:string; invoiceNumber:string; supplierName:string;
 export interface ReconciliationResult { createdCount:number; discrepancies:Discrepancy[]; }
 export interface AiAnalysisRequest { invoiceId?:string; rawText:string; }
 export interface AiAnalysisResponse { analysis:string; isFallback:boolean; }
+
+export type FinancialCaseStatus = 'Open' | 'Investigating' | 'Resolved' | 'Ignored';
+export type FinancialCaseSeverity = 'Low' | 'Medium' | 'High' | 'Critical';
+export type FinancialNodeType = 'Order' | 'Payment' | 'Invoice' | 'Payout' | 'BankTransaction' | 'Discrepancy';
+export type FinancialRelationType = 'PaymentFor' | 'InvoiceFor' | 'SettlementFor' | 'BankDepositFor' | 'RelatedTo';
+
+export interface FinancialCaseLink {
+  nodeType:FinancialNodeType;
+  entityId:string;
+  role:string;
+  label:string;
+  amount:number|null;
+  currency:string;
+}
+
+export interface FinancialCase {
+  id:string;
+  discrepancyId:string|null;
+  status:FinancialCaseStatus;
+  severity:FinancialCaseSeverity;
+  title:string;
+  description:string;
+  rootCause:string|null;
+  affectedAmount:number;
+  currency:string;
+  detectedAtUtc:string;
+  resolvedAtUtc:string|null;
+  links:FinancialCaseLink[];
+}
+
+export interface FinancialGraphRelation {
+  id:string;
+  fromNodeType:FinancialNodeType;
+  fromEntityId:string;
+  toNodeType:FinancialNodeType;
+  toEntityId:string;
+  relationType:FinancialRelationType;
+}
+
+export interface SystemHealth {
+  connectionId:string|null;
+  name:string;
+  provider:string;
+  status:'Healthy'|'Warning'|'Disconnected';
+  detail:string|null;
+  lastSeenAtUtc:string|null;
+}
+
+export interface ControlTower {
+  financialIntegrityScore:number;
+  totalRevenue:number;
+  expectedCash:number;
+  actualCash:number;
+  cashGap:number;
+  openCaseCount:number;
+  highRiskCaseCount:number;
+  affectedAmount:number;
+  systemHealth:SystemHealth[];
+  cases:FinancialCase[];
+}
