@@ -6,7 +6,6 @@ import { DashboardStore } from '../../core/stores/dashboard.store';
 @Component({
   standalone:true,
   imports:[CurrencyPipe,RouterLink],
-  providers:[DashboardStore],
   changeDetection:ChangeDetectionStrategy.OnPush,
   template:`
     <div class="mb-8"><h1 class="text-2xl font-bold tracking-tight">Dashboard</h1><p class="mt-1 text-sm text-slate-500">Überblick über Aufträge, Zahlungen und Abweichungen.</p></div>
