@@ -14,6 +14,9 @@ public sealed class IntegrationConnection
     public string? ApiKeyHash { get; private set; }
     public string? ShopDomain { get; private set; }
     public string? EncryptedAccessToken { get; private set; }
+    public string? EncryptedRefreshToken { get; private set; }
+    public DateTime? AccessTokenExpiresAtUtc { get; private set; }
+    public DateTime? RefreshTokenExpiresAtUtc { get; private set; }
     public string Scopes { get; private set; } = string.Empty;
     public ConnectionStatus Status { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
@@ -50,7 +53,10 @@ public sealed class IntegrationConnection
         string shopDomain,
         string displayName,
         string encryptedAccessToken,
-        string scopes)
+        string scopes,
+        string? encryptedRefreshToken = null,
+        DateTime? accessTokenExpiresAtUtc = null,
+        DateTime? refreshTokenExpiresAtUtc = null)
     {
         if (tenantId == Guid.Empty) throw new ArgumentException("Tenant id is required.", nameof(tenantId));
         if (string.IsNullOrWhiteSpace(shopDomain)) throw new ArgumentException("Shop domain is required.", nameof(shopDomain));
@@ -67,6 +73,9 @@ public sealed class IntegrationConnection
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? normalizedDomain : displayName.Trim(),
             ShopDomain = normalizedDomain,
             EncryptedAccessToken = encryptedAccessToken,
+            EncryptedRefreshToken = encryptedRefreshToken,
+            AccessTokenExpiresAtUtc = accessTokenExpiresAtUtc,
+            RefreshTokenExpiresAtUtc = refreshTokenExpiresAtUtc,
             Scopes = scopes?.Trim() ?? string.Empty,
             Status = ConnectionStatus.Connected,
             CreatedAtUtc = DateTime.UtcNow
@@ -97,7 +106,7 @@ public sealed class IntegrationConnection
 
     public void Disconnect() => Status = ConnectionStatus.Disconnected;
 
-    public void UpdateShopifyCredentials(string encryptedAccessToken, string scopes)
+    public void UpdateShopifyCredentials(string encryptedAccessToken, string scopes, string? encryptedRefreshToken = null, DateTime? accessTokenExpiresAtUtc = null, DateTime? refreshTokenExpiresAtUtc = null)
     {
         if (Provider != IntegrationProvider.Shopify)
             throw new InvalidOperationException("Only Shopify connections can update Shopify credentials.");
@@ -105,6 +114,9 @@ public sealed class IntegrationConnection
             throw new ArgumentException("Encrypted access token is required.", nameof(encryptedAccessToken));
 
         EncryptedAccessToken = encryptedAccessToken;
+        EncryptedRefreshToken = encryptedRefreshToken;
+        AccessTokenExpiresAtUtc = accessTokenExpiresAtUtc;
+        RefreshTokenExpiresAtUtc = refreshTokenExpiresAtUtc;
         Scopes = scopes?.Trim() ?? string.Empty;
         Status = ConnectionStatus.Connected;
     }
