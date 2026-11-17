@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<IIntegrationConnectionRepository, IntegrationConnectionRepository>();
         services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
+        services.AddSingleton<ISecretProtector, AesGcmSecretProtector>();
         services.AddScoped<IFinancialCaseRepository, FinancialCaseRepository>();
         services.AddScoped<IFinancialCaseLinkRepository, FinancialCaseLinkRepository>();
         services.AddScoped<ICaseAuditEventRepository, CaseAuditEventRepository>();
