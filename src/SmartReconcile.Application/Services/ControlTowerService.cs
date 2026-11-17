@@ -8,12 +8,14 @@ namespace SmartReconcile.Application.Services;
 public sealed class ControlTowerService(
     IFinancialCaseRepository cases,
     IFinancialCaseLinkRepository caseLinks,
+    ICaseAuditEventRepository auditEvents,
     IFinancialGraphRepository graph,
     IDiscrepancyRepository discrepancies,
     IOrderRepository orders,
     IPaymentRepository payments,
     IInvoiceRepository invoices,
-    IIntegrationConnectionRepository connections) : IControlTowerService
+    IIntegrationConnectionRepository connections,
+    IAiAnalysisService aiAnalysis) : IControlTowerService
 {
     public async Task<ControlTowerDto> GetOverviewAsync(CancellationToken cancellationToken)
     {
@@ -63,20 +65,158 @@ public sealed class ControlTowerService(
         return item is null ? null : await MapCaseAsync(item, cancellationToken);
     }
 
+    public async Task<FinancialCaseDetailDto?> GetCaseDetailAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var item = await cases.GetByIdAsync(id, cancellationToken);
+        if (item is null)
+            return null;
+
+        var links = await caseLinks.GetForCaseAsync(item.Id, cancellationToken);
+        var timeline = await auditEvents.GetForCaseAsync(item.Id, cancellationToken);
+        var discrepancy = item.DiscrepancyId.HasValue
+            ? await discrepancies.GetByIdAsync(item.DiscrepancyId.Value, cancellationToken)
+            : null;
+
+        var graphNodes = await BuildGraphNodesAsync(discrepancy, links, cancellationToken);
+
+        var analysis = discrepancy?.AiAnalysis ?? item.RootCause;
+        var recommendedAction = timeline
+            .Where(x => x.EventType == CaseAuditEventType.Investigated)
+            .Select(x => ExtractRecommendedAction(x.Description))
+            .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+
+        var rootCauseAnalysis = new RootCauseAnalysisDto(
+            string.IsNullOrWhiteSpace(analysis) ? null : analysis,
+            recommendedAction,
+            !string.IsNullOrWhiteSpace(analysis),
+            timeline.Any(x => x.EventType == CaseAuditEventType.Investigated && x.Description.Contains("Fallback", StringComparison.OrdinalIgnoreCase)));
+
+        return new FinancialCaseDetailDto(
+            item.Id,
+            item.CaseNumber ?? BuildCaseNumber(item),
+            item.DiscrepancyId,
+            item.Title,
+            item.Description,
+            item.Severity,
+            item.Status,
+            item.AffectedAmount,
+            item.Currency,
+            item.DetectedAtUtc,
+            item.ResolvedAtUtc,
+            timeline.Select(x => new CaseAuditEventDto(
+                x.Id,
+                x.EventType,
+                x.Description,
+                x.Actor,
+                x.CreatedAtUtc)).ToList(),
+            graphNodes,
+            rootCauseAnalysis);
+    }
+
     public async Task<FinancialCaseDto?> StartInvestigationAsync(Guid id, CancellationToken cancellationToken)
     {
         var item = await cases.GetByIdAsync(id, cancellationToken);
-        if (item is null) return null;
+        if (item is null)
+            return null;
+
+        var links = await caseLinks.GetForCaseAsync(item.Id, cancellationToken);
+        var discrepancy = item.DiscrepancyId.HasValue
+            ? await discrepancies.GetByIdAsync(item.DiscrepancyId.Value, cancellationToken)
+            : null;
+
         item.StartInvestigation();
+
+        var context = await BuildAiContextAsync(discrepancy, links, cancellationToken);
+        var aiResult = await aiAnalysis.AnalyzeFinancialCaseAsync(
+            new FinancialCaseAnalysisRequest(item.Title, item.Description, context),
+            cancellationToken);
+
+        item.SetRootCause(aiResult.Analysis);
+
+        if (discrepancy is not null)
+            discrepancy.SetAiAnalysis(aiResult.Analysis);
+
+        await auditEvents.AddAsync(
+            CaseAuditEvent.Create(
+                item.Id,
+                CaseAuditEventType.Investigated,
+                $"KI-Ursachenanalyse durchgeführt{(aiResult.IsFallback ? " (Fallback)" : string.Empty)}. Ursache: {aiResult.Analysis} Empfehlung: {aiResult.RecommendedAction}",
+                "AI Engine"),
+            cancellationToken);
+
         await cases.SaveAsync(cancellationToken);
         return await MapCaseAsync(item, cancellationToken);
     }
 
-    public async Task<FinancialCaseDto?> ResolveAsync(Guid id, string? rootCause, CancellationToken cancellationToken)
+    public async Task<FinancialCaseDto?> AutoFixAsync(Guid id, CancellationToken cancellationToken)
     {
         var item = await cases.GetByIdAsync(id, cancellationToken);
-        if (item is null) return null;
+        if (item is null)
+            return null;
+
+        var discrepancy = item.DiscrepancyId.HasValue
+            ? await discrepancies.GetByIdAsync(item.DiscrepancyId.Value, cancellationToken)
+            : null;
+
+        var description = "Automatische Korrekturmaßnahme wurde ausgelöst.";
+        var actionWasApplied = false;
+
+        if (discrepancy?.Type == DiscrepancyType.OrphanedPayment &&
+            discrepancy.OrderId.HasValue &&
+            discrepancy.PaymentId.HasValue)
+        {
+            var payment = await payments.GetByIdAsync(discrepancy.PaymentId.Value, cancellationToken);
+            var order = await orders.GetByIdAsync(discrepancy.OrderId.Value, cancellationToken);
+
+            if (payment?.Status == PaymentStatus.Succeeded && order is not null)
+            {
+                order.ChangeStatus(OrderStatus.Paid);
+                actionWasApplied = true;
+                description = $"Bestellung {order.OrderNumber} wurde nach erfolgreicher Zahlung automatisch auf 'Bezahlt' gesetzt.";
+            }
+        }
+
+        if (!actionWasApplied)
+        {
+            description = "Automatische Korrekturprüfung ausgeführt. Für diesen Fall ist keine sichere automatische Buchungskorrektur hinterlegt; eine manuelle Prüfung bleibt erforderlich.";
+        }
+
+        await auditEvents.AddAsync(
+            CaseAuditEvent.Create(
+                item.Id,
+                CaseAuditEventType.ActionExecuted,
+                description,
+                "System"),
+            cancellationToken);
+
+        await cases.SaveAsync(cancellationToken);
+        return await MapCaseAsync(item, cancellationToken);
+    }
+
+    public async Task<FinancialCaseDto?> ResolveAsync(
+        Guid id,
+        string? rootCause,
+        string? note,
+        CancellationToken cancellationToken)
+    {
+        var item = await cases.GetByIdAsync(id, cancellationToken);
+        if (item is null)
+            return null;
+
         item.Resolve(rootCause);
+
+        var description = string.IsNullOrWhiteSpace(note)
+            ? "Finanzfall wurde als gelöst markiert."
+            : $"Finanzfall wurde als gelöst markiert. Notiz: {note.Trim()}";
+
+        await auditEvents.AddAsync(
+            CaseAuditEvent.Create(
+                item.Id,
+                CaseAuditEventType.Resolved,
+                description,
+                "User"),
+            cancellationToken);
+
         await cases.SaveAsync(cancellationToken);
         return await MapCaseAsync(item, cancellationToken);
     }
@@ -84,8 +224,19 @@ public sealed class ControlTowerService(
     public async Task<FinancialCaseDto?> IgnoreAsync(Guid id, CancellationToken cancellationToken)
     {
         var item = await cases.GetByIdAsync(id, cancellationToken);
-        if (item is null) return null;
+        if (item is null)
+            return null;
+
         item.Ignore();
+
+        await auditEvents.AddAsync(
+            CaseAuditEvent.Create(
+                item.Id,
+                CaseAuditEventType.Ignored,
+                "Finanzfall wurde vom Benutzer ignoriert.",
+                "User"),
+            cancellationToken);
+
         await cases.SaveAsync(cancellationToken);
         return await MapCaseAsync(item, cancellationToken);
     }
@@ -177,6 +328,14 @@ public sealed class ControlTowerService(
             }
 
             await caseLinks.AddRangeAsync(links, cancellationToken);
+
+            await auditEvents.AddAsync(
+                CaseAuditEvent.Create(
+                    financialCase.Id,
+                    CaseAuditEventType.Detected,
+                    $"Finanzfall erkannt: {financialCase.Title}. Betroffener Betrag: {financialCase.AffectedAmount:0.00} EUR.",
+                    "System"),
+                cancellationToken);
         }
 
         await cases.SaveAsync(cancellationToken);
@@ -209,6 +368,103 @@ public sealed class ControlTowerService(
         await graph.SaveAsync(cancellationToken);
     }
 
+    private async Task<List<FinancialGraphNodeDto>> BuildGraphNodesAsync(
+        Discrepancy? discrepancy,
+        IReadOnlyList<FinancialCaseLink> links,
+        CancellationToken cancellationToken)
+    {
+        var orderId = discrepancy?.OrderId ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Order)?.EntityId;
+        var paymentId = discrepancy?.PaymentId ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Payment)?.EntityId;
+        var invoiceId = discrepancy?.InvoiceId ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Invoice)?.EntityId;
+
+        var order = orderId.HasValue ? await orders.GetByIdAsync(orderId.Value, cancellationToken) : null;
+        var payment = paymentId.HasValue ? await payments.GetByIdAsync(paymentId.Value, cancellationToken) : null;
+        var invoice = invoiceId.HasValue ? await invoices.GetByIdAsync(invoiceId.Value, cancellationToken) : null;
+
+        return
+        [
+            order is null
+                ? MissingNode(FinancialNodeType.Order)
+                : new FinancialGraphNodeDto(
+                    FinancialNodeType.Order,
+                    order.Id,
+                    true,
+                    MapOrderStatus(order.Status),
+                    order.OrderNumber,
+                    order.TotalAmount,
+                    order.Currency,
+                    order.CreatedAtUtc,
+                    $"Kunde: {order.CustomerName}"),
+            payment is null
+                ? MissingNode(FinancialNodeType.Payment)
+                : new FinancialGraphNodeDto(
+                    FinancialNodeType.Payment,
+                    payment.Id,
+                    true,
+                    MapPaymentStatus(payment.Status),
+                    payment.TransactionId,
+                    payment.Amount,
+                    payment.Currency,
+                    payment.PaidAtUtc,
+                    "Zahlungstransaktion"),
+            invoice is null
+                ? MissingNode(FinancialNodeType.Invoice)
+                : new FinancialGraphNodeDto(
+                    FinancialNodeType.Invoice,
+                    invoice.Id,
+                    true,
+                    "Vorhanden",
+                    invoice.InvoiceNumber,
+                    invoice.Amount,
+                    invoice.Currency,
+                    invoice.InvoiceDateUtc,
+                    $"Lieferant: {invoice.SupplierName}")
+        ];
+    }
+
+    private async Task<string> BuildAiContextAsync(
+        Discrepancy? discrepancy,
+        IReadOnlyList<FinancialCaseLink> links,
+        CancellationToken cancellationToken)
+    {
+        var nodes = await BuildGraphNodesAsync(discrepancy, links, cancellationToken);
+        return string.Join(
+            " | ",
+            nodes.Select(x =>
+                $"{x.NodeType}: Status={x.Status}, Kennung={x.Identifier ?? "Fehlt"}, Betrag={(x.Amount?.ToString("0.00") ?? "Fehlt")} {x.Currency}"));
+    }
+
+    private static string ExtractRecommendedAction(string description)
+    {
+        const string marker = "Empfehlung:";
+        var index = description.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        return index < 0 ? string.Empty : description[(index + marker.Length)..].Trim();
+    }
+
+    private static FinancialGraphNodeDto MissingNode(FinancialNodeType type)
+        => new(type, null, false, "Fehlt", null, null, "EUR", null, "Keine verknüpfte Entität vorhanden.");
+
+    private static string MapOrderStatus(OrderStatus status)
+        => status switch
+        {
+            OrderStatus.Pending => "Offen",
+            OrderStatus.Paid => "Bezahlt",
+            OrderStatus.OnHold => "Zurückgestellt",
+            OrderStatus.Cancelled => "Storniert",
+            OrderStatus.Refunded => "Erstattet",
+            _ => "Unbekannt"
+        };
+
+    private static string MapPaymentStatus(PaymentStatus status)
+        => status switch
+        {
+            PaymentStatus.Pending => "Ausstehend",
+            PaymentStatus.Succeeded => "Erfolgreich",
+            PaymentStatus.Failed => "Fehlgeschlagen",
+            PaymentStatus.Refunded => "Erstattet",
+            _ => "Unbekannt"
+        };
+
     private async Task<FinancialCaseDto> MapCaseAsync(FinancialCase item, CancellationToken cancellationToken)
     {
         var links = await caseLinks.GetForCaseAsync(item.Id, cancellationToken);
@@ -232,6 +488,9 @@ public sealed class ControlTowerService(
                 x.Amount,
                 x.Currency)).ToList());
     }
+
+    private static string BuildCaseNumber(FinancialCase item)
+        => $"CASE-{item.DetectedAtUtc:yyyy}-{item.Id.ToString("N")[..6].ToUpperInvariant()}";
 
     private static FinancialCaseSeverity DetermineSeverity(Discrepancy discrepancy)
     {
