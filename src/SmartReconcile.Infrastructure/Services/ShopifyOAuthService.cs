@@ -56,7 +56,7 @@ public sealed class ShopifyOAuthService(
         if (string.IsNullOrWhiteSpace(payload.AccessToken))
             throw new InvalidOperationException("Shopify did not return an access token.");
 
-        return new ShopifyOAuthResult(payload.AccessToken, payload.Scope ?? options.Scopes);
+        return new ShopifyOAuthResult(payload.AccessToken, payload.Scope ?? options.Scopes, payload.RefreshToken ?? string.Empty, payload.ExpiresInSeconds, payload.RefreshTokenExpiresInSeconds);
     }
 
     public async Task RegisterWebhooksAsync(string shopDomain, string accessToken, CancellationToken cancellationToken)
@@ -121,5 +121,8 @@ public sealed class ShopifyOAuthService(
 
     private sealed record ShopifyTokenResponse(
         [property: System.Text.Json.Serialization.JsonPropertyName("access_token")] string? AccessToken,
-        [property: System.Text.Json.Serialization.JsonPropertyName("scope")] string? Scope);
+        [property: System.Text.Json.Serialization.JsonPropertyName("scope")] string? Scope,
+        [property: System.Text.Json.Serialization.JsonPropertyName("refresh_token")] string? RefreshToken,
+        [property: System.Text.Json.Serialization.JsonPropertyName("expires_in")] int ExpiresInSeconds,
+        [property: System.Text.Json.Serialization.JsonPropertyName("refresh_token_expires_in")] int RefreshTokenExpiresInSeconds);
 }
