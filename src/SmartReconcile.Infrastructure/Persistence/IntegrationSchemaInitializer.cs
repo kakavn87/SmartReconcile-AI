@@ -33,6 +33,49 @@ public static class IntegrationSchemaInitializer
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_IntegrationConnections_TenantId_Provider_ExternalStoreId"
                 ON "IntegrationConnections" ("TenantId", "Provider", "ExternalStoreId");
 
+            CREATE TABLE IF NOT EXISTS "FinancialCases" (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "DiscrepancyId" uuid NULL,
+                "Status" integer NOT NULL,
+                "Severity" integer NOT NULL,
+                "Title" varchar(300) NOT NULL,
+                "Description" text NOT NULL,
+                "RootCause" text NULL,
+                "AffectedAmount" numeric(18,2) NOT NULL,
+                "Currency" varchar(3) NOT NULL,
+                "DetectedAtUtc" timestamp with time zone NOT NULL,
+                "ResolvedAtUtc" timestamp with time zone NULL
+            );
+            CREATE INDEX IF NOT EXISTS "IX_FinancialCases_DiscrepancyId_Status"
+                ON "FinancialCases" ("DiscrepancyId", "Status");
+
+            CREATE TABLE IF NOT EXISTS "FinancialCaseLinks" (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "FinancialCaseId" uuid NOT NULL,
+                "NodeType" integer NOT NULL,
+                "EntityId" uuid NOT NULL,
+                "Role" varchar(100) NOT NULL,
+                "Label" varchar(300) NOT NULL,
+                "Amount" numeric(18,2) NULL,
+                "Currency" varchar(3) NOT NULL,
+                CONSTRAINT "FK_FinancialCaseLinks_FinancialCases_FinancialCaseId"
+                    FOREIGN KEY ("FinancialCaseId") REFERENCES "FinancialCases" ("Id") ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS "IX_FinancialCaseLinks_Case_Node"
+                ON "FinancialCaseLinks" ("FinancialCaseId", "NodeType", "EntityId");
+
+            CREATE TABLE IF NOT EXISTS "FinancialGraphRelations" (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "FromNodeType" integer NOT NULL,
+                "FromEntityId" uuid NOT NULL,
+                "ToNodeType" integer NOT NULL,
+                "ToEntityId" uuid NOT NULL,
+                "RelationType" integer NOT NULL,
+                "CreatedAtUtc" timestamp with time zone NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_FinancialGraphRelations_Nodes_Relation"
+                ON "FinancialGraphRelations" ("FromNodeType", "FromEntityId", "ToNodeType", "ToEntityId", "RelationType");
+
             CREATE TABLE IF NOT EXISTS "WebhookEvents" (
                 "Id" uuid NOT NULL PRIMARY KEY,
                 "TenantId" uuid NOT NULL,
