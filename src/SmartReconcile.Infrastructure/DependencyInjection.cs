@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<IWebhookEventRepository, WebhookEventRepository>();
         services.AddScoped<IFinancialCaseRepository, FinancialCaseRepository>();
         services.AddScoped<IFinancialCaseLinkRepository, FinancialCaseLinkRepository>();
+        services.AddScoped<ICaseAuditEventRepository, CaseAuditEventRepository>();
         services.AddScoped<IFinancialGraphRepository, FinancialGraphRepository>();
         services.AddScoped<ISeedService, SeedService>();
         services.AddScoped<ICsvExporter, CsvExporter>();
