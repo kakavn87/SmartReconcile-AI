@@ -71,3 +71,49 @@ export interface ControlTower {
   systemHealth:SystemHealth[];
   cases:FinancialCase[];
 }
+
+export type CaseAuditEventType = 'Detected' | 'Investigated' | 'ActionExecuted' | 'Resolved' | 'Ignored';
+
+export interface CaseAuditEvent {
+  id:string;
+  eventType:CaseAuditEventType;
+  description:string;
+  actor:string;
+  createdAtUtc:string;
+}
+
+export interface FinancialGraphNode {
+  nodeType:FinancialNodeType;
+  entityId:string|null;
+  exists:boolean;
+  status:string;
+  identifier:string|null;
+  amount:number|null;
+  currency:string;
+  createdAtUtc:string|null;
+  detail:string|null;
+}
+
+export interface RootCauseAnalysis {
+  analysis:string|null;
+  recommendedAction:string|null;
+  analyzed:boolean;
+  isFallback:boolean;
+}
+
+export interface FinancialCaseDetail {
+  id:string;
+  caseNumber:string;
+  discrepancyId:string|null;
+  title:string;
+  description:string;
+  severity:FinancialCaseSeverity;
+  status:FinancialCaseStatus;
+  affectedAmount:number;
+  currency:string;
+  detectedAtUtc:string;
+  resolvedAtUtc:string|null;
+  timeline:CaseAuditEvent[];
+  graphNodes:FinancialGraphNode[];
+  rootCauseAnalysis:RootCauseAnalysis;
+}
