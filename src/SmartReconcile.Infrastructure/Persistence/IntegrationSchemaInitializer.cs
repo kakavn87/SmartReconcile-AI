@@ -16,22 +16,40 @@ public static class IntegrationSchemaInitializer
             );
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_Tenants_Slug" ON "Tenants" ("Slug");
 
+            INSERT INTO "Tenants" ("Id", "Name", "Slug", "IsActive", "CreatedAtUtc")
+            SELECT '00000000-0000-0000-0000-000000000001'::uuid, 'Demo Mandant', 'demo', true, NOW()
+            WHERE NOT EXISTS (SELECT 1 FROM "Tenants" WHERE "Slug" = 'demo');
+
             CREATE TABLE IF NOT EXISTS "IntegrationConnections" (
                 "Id" uuid NOT NULL PRIMARY KEY,
                 "TenantId" uuid NOT NULL,
                 "Provider" integer NOT NULL,
                 "ExternalStoreId" varchar(200) NOT NULL,
                 "DisplayName" varchar(200) NOT NULL,
-                "ApiKeyHash" varchar(64) NOT NULL,
+                "ApiKeyHash" varchar(64) NULL,
+                "ShopDomain" varchar(255) NULL,
+                "EncryptedAccessToken" text NULL,
+                "Scopes" varchar(1000) NOT NULL DEFAULT '',
                 "Status" integer NOT NULL,
                 "CreatedAtUtc" timestamp with time zone NOT NULL,
                 "LastSeenAtUtc" timestamp with time zone NULL,
+                "LastSyncAtUtc" timestamp with time zone NULL,
+                "LastWebhookAtUtc" timestamp with time zone NULL,
                 CONSTRAINT "FK_IntegrationConnections_Tenants_TenantId"
                     FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE
             );
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_IntegrationConnections_ApiKeyHash" ON "IntegrationConnections" ("ApiKeyHash");
+            ALTER TABLE "IntegrationConnections" ALTER COLUMN "ApiKeyHash" DROP NOT NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "ShopDomain" varchar(255) NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "EncryptedAccessToken" text NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "Scopes" varchar(1000) NOT NULL DEFAULT '';
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "LastSyncAtUtc" timestamp with time zone NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "LastWebhookAtUtc" timestamp with time zone NULL;
+
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_IntegrationConnections_TenantId_Provider_ExternalStoreId"
                 ON "IntegrationConnections" ("TenantId", "Provider", "ExternalStoreId");
+            CREATE INDEX IF NOT EXISTS "IX_IntegrationConnections_TenantId_Provider_ShopDomain"
+                ON "IntegrationConnections" ("TenantId", "Provider", "ShopDomain");
 
             CREATE TABLE IF NOT EXISTS "FinancialCases" (
                 "Id" uuid NOT NULL PRIMARY KEY,
