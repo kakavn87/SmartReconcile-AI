@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using SmartReconcile.API.Integrations;
 using SmartReconcile.Application.Abstractions;
+using SmartReconcile.Domain.Entities;
+using SmartReconcile.Domain.Enums;
 
 namespace SmartReconcile.API.Controllers;
 
@@ -51,12 +53,12 @@ public sealed class ShopifyIntegrationController(
         var token = await oauth.ExchangeCodeAsync(shop.Trim().ToLowerInvariant(), code, cancellationToken);
         var existing = await connections.GetForTenantAsync(tenant.Id, cancellationToken);
         var connection = existing.FirstOrDefault(x =>
-            x.Provider == Domain.Enums.IntegrationProvider.Shopify &&
+            x.Provider == IntegrationProvider.Shopify &&
             string.Equals(x.ShopDomain, shop.Trim(), StringComparison.OrdinalIgnoreCase));
 
         if (connection is null)
         {
-            connection = Domain.Entities.IntegrationConnection.CreateShopify(
+            connection = IntegrationConnection.CreateShopify(
                 tenant.Id,
                 shop,
                 shop,
