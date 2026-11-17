@@ -49,7 +49,7 @@ const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
               <input
                 [value]="shopDomain()"
                 (input)="shopDomain.set($any($event.target).value)"
-                placeholder="mein-shop.myshopify.com"
+                placeholder="https://mein-shop.myshopify.com/"
                 class="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-100"
               />
               <button type="button" (click)="connectShopify()" [disabled]="!validShop()"
@@ -57,7 +57,7 @@ const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
                 Mit Shopify verbinden
               </button>
             </div>
-            <p class="mt-2 text-xs text-slate-400">Beispiel: mein-shop.myshopify.com</p>
+            <p class="mt-2 text-xs text-slate-400">Beispiel: https://mein-shop.myshopify.com/</p>
           </div>
         </article>
 
@@ -133,9 +133,19 @@ export class IntegrationenPage {
 
   constructor() { this.load(); }
 
+  normalizeShopDomain(value: string): string {
+    let normalized = value.trim().toLowerCase();
+
+    normalized = normalized.replace(/^https?:\/\//, '');
+    normalized = normalized.split('/')[0];
+    normalized = normalized.split('?')[0];
+    normalized = normalized.split('#')[0];
+
+    return normalized;
+  }
+
   validShop() {
-    const value = this.shopDomain().trim().toLowerCase();
-    return /^[a-z0-9-]+\.myshopify\.com$/.test(value);
+    return /^[a-z0-9-]+\.myshopify\.com$/.test(this.normalizeShopDomain(this.shopDomain()));
   }
 
   load() {
@@ -149,7 +159,8 @@ export class IntegrationenPage {
 
   connectShopify() {
     if (!this.validShop()) return;
-    const shop = this.shopDomain().trim().toLowerCase();
+    const shop = this.normalizeShopDomain(this.shopDomain());
+
     window.location.href = `https://smartreconcile-ai-api.onrender.com/api/integrations/shopify/install?shop=${encodeURIComponent(shop)}`;
   }
 
