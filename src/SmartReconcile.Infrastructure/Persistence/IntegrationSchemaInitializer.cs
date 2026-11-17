@@ -16,6 +16,26 @@ public static class IntegrationSchemaInitializer
             );
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_Tenants_Slug" ON "Tenants" ("Slug");
 
+            ALTER TABLE "Orders" ADD COLUMN IF NOT EXISTS "TaxRate" numeric(5,2) NOT NULL DEFAULT 19;
+            ALTER TABLE "Payments" ADD COLUMN IF NOT EXISTS "FeeAmount" numeric(18,2) NOT NULL DEFAULT 0;
+
+            CREATE TABLE IF NOT EXISTS "AccountingSettings" (
+                "Id" uuid NOT NULL PRIMARY KEY,
+                "TenantId" uuid NOT NULL,
+                "Beraternummer" varchar(7) NOT NULL DEFAULT '1001',
+                "Mandantennummer" varchar(5) NOT NULL DEFAULT '10001',
+                "ChartOfAccounts" integer NOT NULL DEFAULT 0,
+                "RevenueAccount19" varchar(8) NOT NULL DEFAULT '8400',
+                "RevenueAccount7" varchar(8) NOT NULL DEFAULT '8300',
+                "PaymentClearingAccount" varchar(8) NOT NULL DEFAULT '1360',
+                "FeeAccount" varchar(8) NOT NULL DEFAULT '4970',
+                "UpdatedAtUtc" timestamp with time zone NOT NULL,
+                CONSTRAINT "FK_AccountingSettings_Tenants_TenantId"
+                    FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_AccountingSettings_TenantId"
+                ON "AccountingSettings" ("TenantId");
+
             CREATE TABLE IF NOT EXISTS "IntegrationConnections" (
                 "Id" uuid NOT NULL PRIMARY KEY,
                 "TenantId" uuid NOT NULL,
