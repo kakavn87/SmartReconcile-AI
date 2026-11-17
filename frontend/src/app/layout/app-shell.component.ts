@@ -37,6 +37,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
           <div class="my-5 border-t border-slate-200"></div>
           <div class="mb-2 px-3 text-[10px] font-extrabold uppercase tracking-[.14em] text-slate-400">System</div>
+          <a routerLink="/integrationen" routerLinkActive="nav-active" class="nav-item"><span class="nav-icon">↔</span><span>Integrationen</span></a>
           <a routerLink="/einstellungen" routerLinkActive="nav-active" class="nav-item"><span class="nav-icon">⚙</span><span>Einstellungen</span></a>
 
           <div class="mt-8 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-4">
