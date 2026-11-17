@@ -8,5 +8,6 @@ public enum IntegrationProvider
     Amazon = 4,
     Stripe = 5,
     PayPal = 6,
+    Demo = 7,
     Custom = 99
 }

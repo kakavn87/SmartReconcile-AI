@@ -26,6 +26,10 @@ public sealed record IntegrationConnectionDto(
     ConnectionStatus Status,
     DateTime CreatedAtUtc,
     DateTime? LastSeenAtUtc,
+    string? ShopDomain,
+    string Scopes,
+    DateTime? LastSyncAtUtc,
+    DateTime? LastWebhookAtUtc,
     string? ApiKey);
 
 public sealed record WebhookAcceptedDto(

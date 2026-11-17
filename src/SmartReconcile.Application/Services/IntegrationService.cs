@@ -86,7 +86,7 @@ public sealed class IntegrationService(
             eventType,
             payloadJson);
 
-        connection.Touch();
+        connection.MarkWebhookReceived();
         await webhookEvents.AddAsync(webhookEvent, cancellationToken);
         await webhookEvents.SaveAsync(cancellationToken);
 

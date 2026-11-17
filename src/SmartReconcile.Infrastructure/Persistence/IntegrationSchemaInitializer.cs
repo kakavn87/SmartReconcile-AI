@@ -53,6 +53,18 @@ public static class IntegrationSchemaInitializer
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_IntegrationConnections_TenantId_Provider_ExternalStoreId"
                 ON "IntegrationConnections" ("TenantId", "Provider", "ExternalStoreId");
 
+            ALTER TABLE "IntegrationConnections" ALTER COLUMN "ApiKeyHash" DROP NOT NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "ShopDomain" varchar(255) NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "EncryptedAccessToken" text NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "EncryptedRefreshToken" text NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "AccessTokenExpiresAtUtc" timestamp with time zone NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "RefreshTokenExpiresAtUtc" timestamp with time zone NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "Scopes" varchar(1000) NOT NULL DEFAULT '';
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "LastSyncAtUtc" timestamp with time zone NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "LastWebhookAtUtc" timestamp with time zone NULL;
+            CREATE INDEX IF NOT EXISTS "IX_IntegrationConnections_TenantId_Provider_ShopDomain"
+                ON "IntegrationConnections" ("TenantId", "Provider", "ShopDomain");
+
             CREATE TABLE IF NOT EXISTS "FinancialCases" (
                 "Id" uuid NOT NULL PRIMARY KEY,
                 "CaseNumber" varchar(30) NULL,

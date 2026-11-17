@@ -801,3 +801,27 @@ Der Bereich **DATEV – Buchungsstapel exportieren** bietet:
 Die Vorschau zeigt unter anderem Betrag, Soll/Haben, Konto, Gegenkonto und Belegnummer.
 
 Der Backend-Export bleibt die autoritative Quelle für die tatsächliche DATEV-Datei. Die Oberfläche dient zur Konfiguration, Ausführung und schnellen Plausibilitätskontrolle.
+
+
+## 27. Shopify Integration — Phase 2
+
+Die Shopify-Integration ist als echter Connector vorbereitet:
+
+- OAuth Authorization Code Flow mit browsergebundenem State und Callback-HMAC-Prüfung
+- verschlüsselte expiring Offline Access Tokens inklusive Refresh Token
+- Shopify Webhooks für Orders und Refunds mit Raw-Body-HMAC und Idempotenz
+- Provider Adapter für Shopify Orders und Transactions
+- manueller Sync der neuesten 50 Orders über die Shopify GraphQL Admin API
+- automatische Token-Erneuerung beim Sync
+- Übergang von Shopify-Daten in Order, Payment und Reconciliation
+
+API-Endpunkte:
+
+```
+GET  /api/integrations/shopify/install?shop=demo.myshopify.com
+GET  /api/integrations/shopify/callback
+POST /api/webhooks/shopify
+POST /api/integrations/shopify/{connectionId}/sync
+```
+
+Die Angular-Seite `/integrationen` bleibt der nächsten Phase vorbehalten.
