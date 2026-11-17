@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using SmartReconcile.API.Integrations;
 using SmartReconcile.Application.Abstractions;
 using SmartReconcile.Domain.Entities;
@@ -13,7 +14,8 @@ public sealed class ShopifyIntegrationController(
     ShopifyOAuthStateStore stateStore,
     ITenantRepository tenants,
     IIntegrationConnectionRepository connections,
-    ISecretProtector secretProtector) : ControllerBase
+    ISecretProtector secretProtector,
+    IOptions<ShopifyOptions> shopifyOptions) : ControllerBase
 {
     [HttpGet("install")]
     public IActionResult Install([FromQuery] string shop)
@@ -91,10 +93,8 @@ public sealed class ShopifyIntegrationController(
                 DateTime.UtcNow.AddSeconds(token.RefreshTokenExpiresInSeconds));
         }
 
-        return Redirect($"{frontendUrl}/integrationen");
+        return Redirect($"{shopifyOptions.Value.FrontendUrl.TrimEnd('/')}/integrationen");
     }
-
-    private string frontendUrl => "https://smartreconcile-ai-frontend.onrender.com";
 
     private static readonly Guid DefaultTenantId =
         Guid.Parse("00000000-0000-0000-0000-000000000001");
