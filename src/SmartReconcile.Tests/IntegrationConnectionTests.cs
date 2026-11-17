@@ -1,6 +1,7 @@
 using SmartReconcile.Domain.Entities;
 using SmartReconcile.Domain.Enums;
-using System.Security.Cryptography;\nusing Microsoft.Extensions.Configuration;\nusing SmartReconcile.Infrastructure.Services;
+using System.Security.Cryptography;
+using SmartReconcile.Infrastructure.Services;
 
 namespace SmartReconcile.Tests;
 
