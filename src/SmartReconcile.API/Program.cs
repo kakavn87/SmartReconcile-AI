@@ -17,10 +17,13 @@ var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string
 builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<SmartReconcileDbContext>();
-    await db.Database.MigrateAsync();
+
+    // The demo currently has no EF migration files.
+    // EnsureCreated creates the complete PostgreSQL schema on a fresh Neon database.
     await db.Database.EnsureCreatedAsync();
 }
 
@@ -29,6 +32,7 @@ app.UseSwaggerUI();
 app.UseCors("Frontend");
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "SmartReconcile.API", utc = DateTime.UtcNow }));
 app.MapControllers();
+
 await app.RunAsync();
 
 public partial class Program { }
