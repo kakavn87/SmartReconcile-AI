@@ -15,6 +15,7 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
     public DbSet<FinancialCase> FinancialCases => Set<FinancialCase>();
     public DbSet<FinancialCaseLink> FinancialCaseLinks => Set<FinancialCaseLink>();
     public DbSet<FinancialGraphRelation> FinancialGraphRelations => Set<FinancialGraphRelation>();
+    public DbSet<CaseAuditEvent> CaseAuditEvents => Set<CaseAuditEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -76,6 +77,8 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.DiscrepancyId, x.Status });
+            e.HasIndex(x => x.CaseNumber).IsUnique();
+            e.Property(x => x.CaseNumber).HasMaxLength(30);
             e.Property(x => x.Title).HasMaxLength(300).IsRequired();
             e.Property(x => x.Description).HasColumnType("text").IsRequired();
             e.Property(x => x.RootCause).HasColumnType("text");
@@ -96,6 +99,15 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.FromNodeType, x.FromEntityId, x.ToNodeType, x.ToEntityId, x.RelationType }).IsUnique();
+        });
+
+        modelBuilder.Entity<CaseAuditEvent>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.FinancialCaseId, x.CreatedAtUtc });
+            e.Property(x => x.Description).HasColumnType("text").IsRequired();
+            e.Property(x => x.Actor).HasMaxLength(100).IsRequired();
+            e.HasOne<FinancialCase>().WithMany().HasForeignKey(x => x.FinancialCaseId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<WebhookEvent>(e =>
