@@ -524,16 +524,53 @@ public sealed class ControlTowerService(
 
     private static SystemHealthDto MapHealth(Domain.Entities.IntegrationConnection connection)
     {
-        if (connection.Status == ConnectionStatus.Revoked)
-            return new SystemHealthDto(connection.Id, connection.DisplayName, connection.Provider.ToString(), "Disconnected", "Verbindung wurde widerrufen.", connection.LastSeenAtUtc);
+        if (connection.Status is ConnectionStatus.Revoked or ConnectionStatus.Disconnected)
+            return new SystemHealthDto(
+                connection.Id,
+                connection.DisplayName,
+                connection.Provider.ToString(),
+                "Disconnected",
+                "Verbindung ist nicht aktiv.",
+                connection.LastWebhookAtUtc ?? connection.LastSeenAtUtc);
 
-        if (connection.LastSeenAtUtc is null)
-            return new SystemHealthDto(connection.Id, connection.DisplayName, connection.Provider.ToString(), "Warning", "Noch kein Ereignis empfangen.", null);
+        if (connection.Status == ConnectionStatus.Warning)
+            return new SystemHealthDto(
+                connection.Id,
+                connection.DisplayName,
+                connection.Provider.ToString(),
+                "Warning",
+                "Verbindung benötigt Aufmerksamkeit.",
+                connection.LastWebhookAtUtc ?? connection.LastSeenAtUtc);
 
-        var age = DateTime.UtcNow - connection.LastSeenAtUtc.Value;
+        var lastActivity = connection.Provider == IntegrationProvider.Shopify
+            ? connection.LastWebhookAtUtc
+            : connection.LastSeenAtUtc;
+
+        if (lastActivity is null)
+            return new SystemHealthDto(
+                connection.Id,
+                connection.DisplayName,
+                connection.Provider.ToString(),
+                "Warning",
+                "Noch keine Aktivität empfangen.",
+                null);
+
+        var age = DateTime.UtcNow - lastActivity.Value;
         if (age <= TimeSpan.FromHours(24))
-            return new SystemHealthDto(connection.Id, connection.DisplayName, connection.Provider.ToString(), "Healthy", null, connection.LastSeenAtUtc);
+            return new SystemHealthDto(
+                connection.Id,
+                connection.DisplayName,
+                connection.Provider.ToString(),
+                "Healthy",
+                null,
+                lastActivity);
 
-        return new SystemHealthDto(connection.Id, connection.DisplayName, connection.Provider.ToString(), "Warning", "Seit mehr als 24 Stunden kein Ereignis empfangen.", connection.LastSeenAtUtc);
+        return new SystemHealthDto(
+            connection.Id,
+            connection.DisplayName,
+            connection.Provider.ToString(),
+            "Warning",
+            "Seit mehr als 24 Stunden keine Aktivität empfangen.",
+            lastActivity);
     }
 }
