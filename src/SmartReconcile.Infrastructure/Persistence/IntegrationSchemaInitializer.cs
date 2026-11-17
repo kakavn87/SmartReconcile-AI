@@ -42,6 +42,9 @@ public static class IntegrationSchemaInitializer
             ALTER TABLE "IntegrationConnections" ALTER COLUMN "ApiKeyHash" DROP NOT NULL;
             ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "ShopDomain" varchar(255) NULL;
             ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "EncryptedAccessToken" text NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "EncryptedRefreshToken" text NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "AccessTokenExpiresAtUtc" timestamp with time zone NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "RefreshTokenExpiresAtUtc" timestamp with time zone NULL;
             ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "Scopes" varchar(1000) NOT NULL DEFAULT '';
             ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "LastSyncAtUtc" timestamp with time zone NULL;
             ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "LastWebhookAtUtc" timestamp with time zone NULL;
