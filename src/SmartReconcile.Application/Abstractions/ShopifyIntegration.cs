@@ -6,6 +6,7 @@ public interface IShopifyOAuthService
 {
     string BuildInstallUrl(string shopDomain, string state);
     Task<ShopifyOAuthResult> ExchangeCodeAsync(string shopDomain, string code, CancellationToken cancellationToken);
+    Task RegisterWebhooksAsync(string shopDomain, string accessToken, CancellationToken cancellationToken);
     bool VerifyCallbackHmac(IReadOnlyDictionary<string, string?> parameters);
     bool IsValidShopDomain(string shopDomain);
 }
