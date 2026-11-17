@@ -113,7 +113,7 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
             generatedAt.ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture),
             "",
             Quote("SR"),
-            Quote("SmartReconcile AI"),
+            Quote("SmartReconcile"),
             Quote(""),
             settings.Beraternummer,
             settings.Mandantennummer,
