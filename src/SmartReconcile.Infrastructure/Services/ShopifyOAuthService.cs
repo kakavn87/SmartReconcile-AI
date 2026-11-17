@@ -71,7 +71,7 @@ public sealed class ShopifyOAuthService(
         }
         """;
 
-        var topics = new[] { "ORDERS_CREATE", "ORDERS_UPDATED", "ORDERS_PAID", "REFUNDS_CREATE" };
+        var topics = new[] { "ORDERS_CREATE", "ORDERS_UPDATED", "ORDERS_PAID", "ORDERS_CANCELLED", "REFUNDS_CREATE" };
         var callbackUrl = $"{options.AppUrl.TrimEnd('/')}/api/webhooks/shopify";
 
         foreach (var topic in topics)
