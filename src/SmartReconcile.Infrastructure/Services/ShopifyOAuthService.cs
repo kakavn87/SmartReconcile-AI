@@ -79,9 +79,6 @@ public sealed class ShopifyOAuthService(
             "ORDERS_PAID",
             "ORDERS_CANCELLED",
             "REFUNDS_CREATE",
-            "CUSTOMERS_DATA_REQUEST",
-            "CUSTOMERS_REDACT",
-            "SHOP_REDACT",
             "APP_UNINSTALLED"
         };
         var callbackUrl = $"{options.AppUrl.TrimEnd('/')}/api/webhooks/shopify";
