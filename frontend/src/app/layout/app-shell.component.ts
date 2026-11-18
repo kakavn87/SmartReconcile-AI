@@ -26,6 +26,21 @@ import { ShopifyBridgeService } from '../core/shopify/shopify-bridge.service';
         </header>
       }
 
+      @if (shopify.isEmbedded()) {
+        <div class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 px-4 py-2 backdrop-blur-xl">
+          <nav class="flex items-center gap-1 overflow-x-auto" aria-label="SmartReconcile Navigation">
+            <a routerLink="/dashboard" routerLinkActive="nav-active" [routerLinkActiveOptions]="{exact:true}" class="embedded-nav-item">Übersicht</a>
+            <a routerLink="/abweichungen" routerLinkActive="nav-active" class="embedded-nav-item">Abweichungen</a>
+            <a routerLink="/bestellungen" routerLinkActive="nav-active" class="embedded-nav-item">Bestellungen</a>
+            <a routerLink="/zahlungen" routerLinkActive="nav-active" class="embedded-nav-item">Zahlungen</a>
+            <a routerLink="/rechnungen" routerLinkActive="nav-active" class="embedded-nav-item">Rechnungen</a>
+            <a routerLink="/abgleich" routerLinkActive="nav-active" class="embedded-nav-item">Abgleich</a>
+            <a routerLink="/integrationen" routerLinkActive="nav-active" class="embedded-nav-item">Integrationen</a>
+            <a routerLink="/einstellungen" routerLinkActive="nav-active" class="embedded-nav-item">Einstellungen</a>
+          </nav>
+        </div>
+      }
+
       <div [class]="shopify.isEmbedded()
         ? 'mx-auto grid max-w-[1500px] grid-cols-1'
         : 'mx-auto grid max-w-[1500px] grid-cols-1 lg:grid-cols-[245px_1fr]'">
@@ -62,6 +77,19 @@ import { ShopifyBridgeService } from '../core/shopify/shopify-bridge.service';
     </div>
   `,
   styles: [`
+    .embedded-nav-item {
+      display:inline-flex;
+      align-items:center;
+      white-space:nowrap;
+      border-radius:10px;
+      padding:.5rem .75rem;
+      color:#64748b;
+      font-size:.78rem;
+      font-weight:700;
+      transition:all .16s ease;
+    }
+    .embedded-nav-item:hover { background:#f8fafc; color:#0f172a; }
+    .embedded-nav-item.nav-active { background:#eff6ff; color:#1d4ed8; }
     .nav-item {
       display:flex;
       align-items:center;
