@@ -32,7 +32,9 @@ public sealed class ShopifyAuthenticationController : ControllerBase
             shopDomain = session.ShopDomain,
             userId = session.UserId,
             sessionId = session.SessionId,
-            expiresAtUtc = session.ExpiresAtUtc
+            expiresAtUtc = session.ExpiresAtUtc,
+            tenantId = ShopifyAuthenticationContext.GetTenant(HttpContext)?.Id,
+            connectionId = ShopifyAuthenticationContext.GetConnection(HttpContext)?.Id
         });
     }
 }
