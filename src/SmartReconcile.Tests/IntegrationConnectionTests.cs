@@ -3,6 +3,7 @@ using SmartReconcile.Domain.Entities;
 using SmartReconcile.Domain.Enums;
 using System.Security.Cryptography;
 using SmartReconcile.Infrastructure.Services;
+using SmartReconcile.API.Authentication;
 
 namespace SmartReconcile.Tests;
 
@@ -44,6 +45,26 @@ public sealed class IntegrationConnectionTests
         Assert.NotNull(connection.LastWebhookAtUtc);
         Assert.Equal(connection.LastWebhookAtUtc, connection.LastSeenAtUtc);
         Assert.Equal(ConnectionStatus.Connected, connection.Status);
+    }
+}
+
+    [Theory]
+    [InlineData("https://smartreconcile-demo.myshopify.com/", "smartreconcile-demo.myshopify.com", "smartreconcile-demo")]
+    [InlineData("SMARTRECONCILE-DEMO.MYSHOPIFY.COM", "smartreconcile-demo.myshopify.com", "smartreconcile-demo")]
+    public void ShopifyDomainNormalization_ProducesStableTenantKey(
+        string input,
+        string expectedDomain,
+        string expectedSlug)
+    {
+        Assert.Equal(expectedDomain, ShopifyTenantResolutionService.NormalizeShopDomain(input));
+        Assert.Equal(expectedSlug, ShopifyTenantResolutionService.ToTenantSlug(input));
+    }
+
+    [Fact]
+    public void ShopifyDomainNormalization_RejectsNonShopifyDomain()
+    {
+        Assert.Throws<UnauthorizedAccessException>(
+            () => ShopifyTenantResolutionService.NormalizeShopDomain("https://example.com"));
     }
 }
 
