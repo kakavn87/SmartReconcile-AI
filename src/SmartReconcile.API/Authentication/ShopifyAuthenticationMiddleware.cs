@@ -1,10 +1,7 @@
-using Microsoft.Extensions.Options;
-
 namespace SmartReconcile.API.Authentication;
 
 public sealed class ShopifyAuthenticationMiddleware(
-    RequestDelegate next,
-    IOptions<ShopifyAuthenticationOptions> options)
+    RequestDelegate next)
 {
     public async Task InvokeAsync(
         HttpContext context,
