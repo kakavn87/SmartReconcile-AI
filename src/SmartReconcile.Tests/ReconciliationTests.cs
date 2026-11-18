@@ -16,7 +16,7 @@ public sealed class ReconciliationTests
     [Fact]
     public void Discrepancy_DefaultsToOpen()
     {
-        var item = Discrepancy.Create(DiscrepancyType.MissingPayment, "Zahlung fehlt", "Test", 10m, Guid.NewGuid(), null, null);
+        var item = Discrepancy.Create(Guid.NewGuid(), DiscrepancyType.MissingPayment, "Zahlung fehlt", "Test", 10m, Guid.NewGuid(), null, null);
         Assert.Equal(DiscrepancyStatus.Open, item.Status);
         item.Resolve();
         Assert.Equal(DiscrepancyStatus.Resolved, item.Status);
