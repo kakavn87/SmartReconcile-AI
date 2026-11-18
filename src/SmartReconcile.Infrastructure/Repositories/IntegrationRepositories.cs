@@ -10,6 +10,9 @@ public sealed class TenantRepository(SmartReconcileDbContext db) : ITenantReposi
     public Task<Tenant?> GetByIdAsync(Guid id, CancellationToken ct)
         => db.Tenants.FirstOrDefaultAsync(x => x.Id == id, ct);
 
+    public Task<Tenant?> GetBySlugAsync(string slug, CancellationToken ct)
+        => db.Tenants.FirstOrDefaultAsync(x => x.Slug == slug, ct);
+
     public Task<bool> ExistsBySlugAsync(string slug, CancellationToken ct)
         => db.Tenants.AnyAsync(x => x.Slug == slug, ct);
 
