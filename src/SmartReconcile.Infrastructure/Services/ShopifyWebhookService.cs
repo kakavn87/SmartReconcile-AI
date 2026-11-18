@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 using SmartReconcile.Application.Abstractions;
 using SmartReconcile.Domain.Entities;
 using SmartReconcile.Domain.Enums;
@@ -13,11 +14,12 @@ namespace SmartReconcile.Infrastructure.Services;
 public sealed class ShopifyWebhookService(
     IOptions<ShopifyOptions> options,
     SmartReconcileDbContext db,
-    IReconciliationService reconciliation) : IShopifyWebhookService
+    IReconciliationService reconciliation,
+    ILogger<ShopifyWebhookService> logger) : IShopifyWebhookService
 {
     private readonly ShopifyOptions options = options.Value;
 
-    public async Task<ShopifyWebhookResult> ProcessAsync(
+    public async Task<ShopifyWebhookResult> EnqueueAsync(
         string rawBody,
         string hmacHeader,
         string? shopDomain,
@@ -61,28 +63,7 @@ public sealed class ShopifyWebhookService(
 
         connection.MarkWebhookReceived();
         db.WebhookEvents.Add(webhook);
-
-        switch (eventType)
-        {
-            case "orders/create":
-            case "orders/updated":
-            case "orders/paid":
-                await ImportOrderAsync(rawBody, cancellationToken);
-                break;
-
-            case "orders/cancelled":
-                await CancelOrderAsync(rawBody, cancellationToken);
-                break;
-
-            case "refunds/create":
-                await ProcessRefundAsync(connection.Id, rawBody, cancellationToken);
-                break;
-        }
-
         await db.SaveChangesAsync(cancellationToken);
-        webhook.MarkProcessed();
-        await db.SaveChangesAsync(cancellationToken);
-        await reconciliation.ReconcileAsync(cancellationToken);
 
         return new ShopifyWebhookResult(
             webhook.Id,
@@ -90,6 +71,169 @@ public sealed class ShopifyWebhookService(
             true,
             eventType,
             normalizedShopDomain);
+    }
+
+    public async Task<int> ProcessPendingAsync(CancellationToken cancellationToken)
+    {
+        var pending = await db.WebhookEvents
+            .Where(x => !x.IsProcessed)
+            .OrderBy(x => x.ReceivedAtUtc)
+            .Take(25)
+            .ToListAsync(cancellationToken);
+
+        var processed = 0;
+
+        foreach (var webhook in pending)
+        {
+            try
+            {
+                await ProcessEventAsync(webhook, cancellationToken);
+                webhook.MarkProcessed();
+                await db.SaveChangesAsync(cancellationToken);
+                processed++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Shopify webhook {WebhookId} ({Topic}) processing failed.", webhook.ExternalEventId, webhook.EventType);
+            }
+        }
+
+        return processed;
+    }
+
+    private async Task ProcessEventAsync(WebhookEvent webhook, CancellationToken cancellationToken)
+    {
+        switch (webhook.EventType)
+        {
+            case "orders/create":
+            case "orders/updated":
+            case "orders/paid":
+                await ImportOrderAsync(webhook.PayloadJson, cancellationToken);
+                break;
+
+            case "orders/cancelled":
+                await CancelOrderAsync(webhook.PayloadJson, cancellationToken);
+                break;
+
+            case "refunds/create":
+                await ProcessRefundAsync(webhook.ConnectionId, webhook.PayloadJson, cancellationToken);
+                break;
+
+            case "customers/data_request":
+                await ProcessCustomerDataRequestAsync(webhook.PayloadJson, cancellationToken);
+                break;
+
+            case "customers/redact":
+                await ProcessCustomerRedactionAsync(webhook.PayloadJson, cancellationToken);
+                break;
+
+            case "shop/redact":
+                await ProcessShopRedactionAsync(webhook.ConnectionId, webhook.PayloadJson, cancellationToken);
+                break;
+
+            case "app/uninstalled":
+                await ProcessAppUninstalledAsync(webhook.ConnectionId, cancellationToken);
+                break;
+        }
+
+        if (webhook.EventType is "orders/create" or "orders/updated" or "orders/paid" or
+            "orders/cancelled" or "refunds/create")
+        {
+            await reconciliation.ReconcileAsync(cancellationToken);
+        }
+    }
+
+    private async Task ProcessCustomerDataRequestAsync(string rawBody, CancellationToken cancellationToken)
+    {
+        // The mandatory compliance webhook is acknowledged and persisted.
+        // A customer data export endpoint can be added later once customer records
+        // are represented as a first-class tenant-scoped entity.
+        await Task.CompletedTask;
+    }
+
+    private async Task ProcessCustomerRedactionAsync(string rawBody, CancellationToken cancellationToken)
+    {
+        using var document = JsonDocument.Parse(rawBody);
+        var root = document.RootElement;
+
+        var email = root.TryGetProperty("customer", out var customer) &&
+                    customer.ValueKind == JsonValueKind.Object &&
+                    customer.TryGetProperty("email", out var emailProperty)
+            ? emailProperty.GetString()
+            : null;
+
+        if (string.IsNullOrWhiteSpace(email))
+            return;
+
+        var orders = await db.Orders
+            .Where(x => x.CustomerEmail == email)
+            .ToListAsync(cancellationToken);
+
+        foreach (var order in orders)
+        {
+            order.RedactCustomerData();
+        }
+    }
+
+    private async Task ProcessShopRedactionAsync(Guid connectionId, string rawBody, CancellationToken cancellationToken)
+    {
+        var connection = await db.IntegrationConnections
+            .FirstOrDefaultAsync(x => x.Id == connectionId, cancellationToken);
+
+        if (connection is null)
+            return;
+
+        var webhookEvents = await db.WebhookEvents
+            .Where(x => x.ConnectionId == connectionId &&
+                        x.EventType.StartsWith("orders/"))
+            .ToListAsync(cancellationToken);
+
+        var orderNumbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var webhook in webhookEvents)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(webhook.PayloadJson);
+                var root = document.RootElement;
+                if (!root.TryGetProperty("name", out var name))
+                    continue;
+
+                var orderName = name.GetString();
+                if (!string.IsNullOrWhiteSpace(orderName))
+                    orderNumbers.Add($"SHOPIFY-{orderName}");
+            }
+            catch (JsonException)
+            {
+                // Ignore malformed historical webhook payloads during redaction.
+            }
+        }
+
+        if (orderNumbers.Count > 0)
+        {
+            var orders = await db.Orders
+                .Where(x => orderNumbers.Contains(x.OrderNumber))
+                .ToListAsync(cancellationToken);
+
+            foreach (var order in orders)
+                order.RedactCustomerData();
+        }
+
+        connection.Revoke();
+        connection.ClearShopifyCredentials();
+        db.WebhookEvents.RemoveRange(webhookEvents.Where(x => x.Id != Guid.Empty));
+    }
+
+    private async Task ProcessAppUninstalledAsync(Guid connectionId, CancellationToken cancellationToken)
+    {
+        var connection = await db.IntegrationConnections
+            .FirstOrDefaultAsync(x => x.Id == connectionId, cancellationToken);
+
+        if (connection is null)
+            return;
+
+        connection.Revoke();
+        connection.ClearShopifyCredentials();
     }
 
     private async Task ImportOrderAsync(string rawBody, CancellationToken cancellationToken)
