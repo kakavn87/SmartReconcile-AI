@@ -127,15 +127,4 @@ public sealed class IntegrationConnection
         Status = ConnectionStatus.Revoked;
         LastSeenAtUtc = null;
     }
-
-    public void ClearShopifyCredentials()
-    {
-        if (Provider != IntegrationProvider.Shopify)
-            return;
-
-        EncryptedAccessToken = null;
-        EncryptedRefreshToken = null;
-        AccessTokenExpiresAtUtc = null;
-        RefreshTokenExpiresAtUtc = null;
-    }
 }
