@@ -24,7 +24,7 @@ public sealed class ShopifyWebhookController(
 
         try
         {
-            var result = await webhookService.ProcessAsync(
+            var result = await webhookService.EnqueueAsync(
                 rawBody,
                 hmac ?? string.Empty,
                 shop,
