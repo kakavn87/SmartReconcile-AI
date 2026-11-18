@@ -29,9 +29,11 @@ public sealed class DatevExtfExporterTests
             119m,
             OrderStatus.Paid,
             new DateTime(2026, 11, 1, 10, 0, 0, DateTimeKind.Utc),
-            19m);
+            19m,
+            tenantId: tenant.Id);
 
         var payment = Payment.Create(
+            tenant.Id,
             order.Id,
             "PAY-TEST-1",
             119m,
@@ -46,6 +48,7 @@ public sealed class DatevExtfExporterTests
         var exporter = new DatevExtfExporter(db, new TestAccountingSettingsService(settings));
 
         var bytes = await exporter.ExportAsync(
+            tenant.Id,
             new DateOnly(2026, 11, 1),
             new DateOnly(2026, 11, 30),
             true,
@@ -80,7 +83,8 @@ public sealed class DatevExtfExporterTests
             107m,
             OrderStatus.Paid,
             new DateTime(2026, 11, 2, 10, 0, 0, DateTimeKind.Utc),
-            7m);
+            7m,
+            tenantId: tenant.Id);
 
         await db.Orders.AddAsync(order);
         await db.SaveChangesAsync();
@@ -88,6 +92,7 @@ public sealed class DatevExtfExporterTests
         var exporter = new DatevExtfExporter(db, new TestAccountingSettingsService(settings));
 
         var bytes = await exporter.ExportAsync(
+            tenant.Id,
             new DateOnly(2026, 11, 2),
             new DateOnly(2026, 11, 2),
             false,
@@ -114,9 +119,11 @@ public sealed class DatevExtfExporterTests
             "max@example.de",
             119m,
             OrderStatus.Paid,
-            new DateTime(2026, 11, 3, 10, 0, 0, DateTimeKind.Utc));
+            new DateTime(2026, 11, 3, 10, 0, 0, DateTimeKind.Utc),
+            tenantId: tenant.Id);
 
         var payment = Payment.Create(
+            tenant.Id,
             order.Id,
             "PAY-TEST-5",
             119m,
@@ -124,6 +131,7 @@ public sealed class DatevExtfExporterTests
             new DateTime(2026, 11, 3, 10, 5, 0, DateTimeKind.Utc));
 
         var discrepancy = Discrepancy.Create(
+            tenant.Id,
             DiscrepancyType.AmountMismatch,
             "Betragsabweichung",
             "Test",
@@ -141,6 +149,7 @@ public sealed class DatevExtfExporterTests
         var exporter = new DatevExtfExporter(db, new TestAccountingSettingsService(settings));
 
         var bytes = await exporter.ExportAsync(
+            tenant.Id,
             new DateOnly(2026, 11, 3),
             new DateOnly(2026, 11, 3),
             true,
@@ -165,6 +174,7 @@ public sealed class DatevExtfExporterTests
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
             exporter.ExportAsync(
+                tenant.Id,
                 new DateOnly(2026, 11, 30),
                 new DateOnly(2026, 11, 1),
                 true,
@@ -188,7 +198,7 @@ public sealed class DatevExtfExporterTests
 
     private sealed class TestAccountingSettingsService(AccountingSettings settings) : IAccountingSettingsService
     {
-        public Task<AccountingSettingsDto> GetAsync(CancellationToken cancellationToken)
+        public Task<AccountingSettingsDto> GetAsync(Guid tenantId, CancellationToken cancellationToken)
             => Task.FromResult(new AccountingSettingsDto(
                 settings.Id,
                 settings.TenantId,
@@ -202,6 +212,7 @@ public sealed class DatevExtfExporterTests
                 settings.UpdatedAtUtc));
 
         public Task<AccountingSettingsDto> UpdateAsync(
+            Guid tenantId,
             UpdateAccountingSettingsRequest request,
             CancellationToken cancellationToken)
             => throw new NotSupportedException();

@@ -16,31 +16,31 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
 
     private static readonly string[] BookingColumns = BookingHeader.Split(';');
 
-    public async Task<byte[]> ExportAsync(DateOnly from, DateOnly to, bool onlyReconciled, CancellationToken cancellationToken)
+    public async Task<byte[]> ExportAsync(Guid tenantId, DateOnly from, DateOnly to, bool onlyReconciled, CancellationToken cancellationToken)
     {
         if (to < from)
             throw new ArgumentException("Das Enddatum darf nicht vor dem Startdatum liegen.");
 
-        var settings = await accountingSettings.GetAsync(cancellationToken);
+        var settings = await accountingSettings.GetAsync(tenantId, cancellationToken);
         var fromUtc = from.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         var toExclusiveUtc = to.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
 
         var orders = await db.Orders
             .AsNoTracking()
-            .Where(x => x.CreatedAtUtc >= fromUtc && x.CreatedAtUtc < toExclusiveUtc)
+            .Where(x => x.TenantId == tenantId && x.CreatedAtUtc >= fromUtc && x.CreatedAtUtc < toExclusiveUtc)
             .OrderBy(x => x.CreatedAtUtc)
             .ToListAsync(cancellationToken);
 
         var orderIds = orders.Select(x => x.Id).ToArray();
         var payments = await db.Payments
             .AsNoTracking()
-            .Where(x => orderIds.Contains(x.OrderId))
+            .Where(x => x.TenantId == tenantId && orderIds.Contains(x.OrderId))
             .ToListAsync(cancellationToken);
 
         var paymentIds = payments.Select(x => x.Id).ToArray();
         var openDiscrepancies = await db.Discrepancies
             .AsNoTracking()
-            .Where(x => x.Status == DiscrepancyStatus.Open &&
+            .Where(x => x.TenantId == tenantId && x.Status == DiscrepancyStatus.Open &&
                         ((x.OrderId.HasValue && orderIds.Contains(x.OrderId.Value)) ||
                          (x.PaymentId.HasValue && paymentIds.Contains(x.PaymentId.Value))))
             .ToListAsync(cancellationToken);

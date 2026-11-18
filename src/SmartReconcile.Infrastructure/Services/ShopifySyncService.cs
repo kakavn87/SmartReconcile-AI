@@ -88,11 +88,12 @@ public sealed class ShopifySyncService(
             {
                 var transactionId = $"SHOPIFY-{transaction.ExternalTransactionId}";
                 if (await db.Payments.AnyAsync(
-                        x => x.TransactionId == transactionId,
+                        x => x.TenantId == connection.TenantId && x.TransactionId == transactionId,
                         cancellationToken))
                     continue;
 
                 var payment = Payment.Create(
+                    connection.TenantId,
                     order.Id,
                     transactionId,
                     transaction.Amount,
@@ -113,7 +114,7 @@ public sealed class ShopifySyncService(
             importedOrders,
             skipped,
             importedPayments);
-        await reconciliation.ReconcileAsync(cancellationToken);
+        await reconciliation.ReconcileAsync(connection.TenantId, cancellationToken);
 
         return new ShopifySyncResult(
             connectionId,

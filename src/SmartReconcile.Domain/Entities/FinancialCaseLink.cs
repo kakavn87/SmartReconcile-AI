@@ -7,6 +7,7 @@ public sealed class FinancialCaseLink
     private FinancialCaseLink() { }
 
     public Guid Id { get; private set; }
+    public Guid TenantId { get; private set; }
     public Guid FinancialCaseId { get; private set; }
     public FinancialNodeType NodeType { get; private set; }
     public Guid EntityId { get; private set; }
@@ -15,16 +16,13 @@ public sealed class FinancialCaseLink
     public decimal? Amount { get; private set; }
     public string Currency { get; private set; } = "EUR";
 
-    public static FinancialCaseLink Create(
-        Guid financialCaseId,
-        FinancialNodeType nodeType,
-        Guid entityId,
-        string role,
-        string label,
-        decimal? amount = null)
-        => new()
+    public static FinancialCaseLink Create(Guid tenantId, Guid financialCaseId, FinancialNodeType nodeType, Guid entityId, string role, string label, decimal? amount = null)
+    {
+        if (tenantId == Guid.Empty) throw new ArgumentException("Tenant id is required.", nameof(tenantId));
+        return new()
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId,
             FinancialCaseId = financialCaseId,
             NodeType = nodeType,
             EntityId = entityId,
@@ -33,4 +31,5 @@ public sealed class FinancialCaseLink
             Amount = amount.HasValue ? decimal.Round(amount.Value, 2) : null,
             Currency = "EUR"
         };
+    }
 }

@@ -1,7 +1,9 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SmartReconcile.Application.Abstractions;
+using SmartReconcile.Infrastructure.Persistence;
 
 namespace SmartReconcile.Infrastructure.Workers;
 
@@ -21,7 +23,7 @@ public sealed class ReconciliationWorker(IServiceScopeFactory scopeFactory, ILog
             catch (Exception ex)
             {
                 logger.LogError(ex, "Reconciliation background job failed.");
-                try { await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken); } catch (OperationCanceledException) { break; }
+                try { await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken); } catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             }
         }
     }
@@ -29,8 +31,27 @@ public sealed class ReconciliationWorker(IServiceScopeFactory scopeFactory, ILog
     private async Task RunOnce(CancellationToken ct)
     {
         using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SmartReconcileDbContext>();
         var service = scope.ServiceProvider.GetRequiredService<IReconciliationService>();
-        var result = await service.ReconcileAsync(ct);
-        logger.LogInformation("Reconciliation completed. Created {Count} discrepancies.", result.CreatedCount);
+
+        var tenantIds = await db.IntegrationConnections
+            .Where(x => x.Provider == SmartReconcile.Domain.Enums.IntegrationProvider.Shopify &&
+                        x.Status == SmartReconcile.Domain.Enums.ConnectionStatus.Connected)
+            .Select(x => x.TenantId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        foreach (var tenantId in tenantIds)
+        {
+            try
+            {
+                var result = await service.ReconcileAsync(tenantId, ct);
+                logger.LogInformation("Reconciliation completed for tenant {TenantId}. Created {Count} discrepancies.", tenantId, result.CreatedCount);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Reconciliation failed for tenant {TenantId}.", tenantId);
+            }
+        }
     }
 }

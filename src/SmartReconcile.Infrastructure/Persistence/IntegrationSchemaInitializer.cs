@@ -43,6 +43,105 @@ public static class IntegrationSchemaInitializer
                 ON "Orders" ("TenantId");
 
             ALTER TABLE "Payments" ADD COLUMN IF NOT EXISTS "FeeAmount" numeric(18,2) NOT NULL DEFAULT 0;
+            -- Tenant isolation migration for legacy tables. Existing legacy rows belonged
+            -- to the original demo tenant; where a relationship exists, prefer its owner.
+            ALTER TABLE "Payments" ADD COLUMN IF NOT EXISTS "TenantId" uuid;
+            UPDATE "Payments" p
+            SET "TenantId" = o."TenantId"
+            FROM "Orders" o
+            WHERE p."OrderId" = o."Id" AND p."TenantId" IS NULL;
+            UPDATE "Payments"
+            SET "TenantId" = '00000000-0000-0000-0000-000000000001'
+            WHERE "TenantId" IS NULL;
+            ALTER TABLE "Payments" ALTER COLUMN "TenantId" SET NOT NULL;
+            ALTER TABLE "Payments" DROP CONSTRAINT IF EXISTS "FK_Payments_Tenants_TenantId";
+            ALTER TABLE "Payments" ADD CONSTRAINT "FK_Payments_Tenants_TenantId"
+                FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE;
+            DROP INDEX IF EXISTS "IX_Payments_TransactionId";
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_Payments_TenantId_TransactionId" ON "Payments" ("TenantId", "TransactionId");
+            CREATE INDEX IF NOT EXISTS "IX_Payments_TenantId" ON "Payments" ("TenantId");
+
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "TenantId" uuid;
+            UPDATE "Invoices" SET "TenantId" = '00000000-0000-0000-0000-000000000001' WHERE "TenantId" IS NULL;
+            ALTER TABLE "Invoices" ALTER COLUMN "TenantId" SET NOT NULL;
+            ALTER TABLE "Invoices" DROP CONSTRAINT IF EXISTS "FK_Invoices_Tenants_TenantId";
+            ALTER TABLE "Invoices" ADD CONSTRAINT "FK_Invoices_Tenants_TenantId"
+                FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE;
+            CREATE INDEX IF NOT EXISTS "IX_Invoices_TenantId" ON "Invoices" ("TenantId");
+            CREATE INDEX IF NOT EXISTS "IX_Invoices_TenantId_InvoiceNumber" ON "Invoices" ("TenantId", "InvoiceNumber");
+
+            ALTER TABLE "Discrepancies" ADD COLUMN IF NOT EXISTS "TenantId" uuid;
+            UPDATE "Discrepancies" d
+            SET "TenantId" = COALESCE(
+                (SELECT o."TenantId" FROM "Orders" o WHERE o."Id" = d."OrderId"),
+                (SELECT p."TenantId" FROM "Payments" p WHERE p."Id" = d."PaymentId"),
+                (SELECT i."TenantId" FROM "Invoices" i WHERE i."Id" = d."InvoiceId")
+            )
+            WHERE d."TenantId" IS NULL;
+            UPDATE "Discrepancies" SET "TenantId" = '00000000-0000-0000-0000-000000000001' WHERE "TenantId" IS NULL;
+            ALTER TABLE "Discrepancies" ALTER COLUMN "TenantId" SET NOT NULL;
+            ALTER TABLE "Discrepancies" DROP CONSTRAINT IF EXISTS "FK_Discrepancies_Tenants_TenantId";
+            ALTER TABLE "Discrepancies" ADD CONSTRAINT "FK_Discrepancies_Tenants_TenantId"
+                FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE;
+            CREATE INDEX IF NOT EXISTS "IX_Discrepancies_TenantId" ON "Discrepancies" ("TenantId");
+            CREATE INDEX IF NOT EXISTS "IX_Discrepancies_TenantId_Type_Status" ON "Discrepancies" ("TenantId", "Type", "Status");
+
+            ALTER TABLE "FinancialCases" ADD COLUMN IF NOT EXISTS "TenantId" uuid;
+            UPDATE "FinancialCases" fc
+            SET "TenantId" = d."TenantId"
+            FROM "Discrepancies" d
+            WHERE fc."DiscrepancyId" = d."Id" AND fc."TenantId" IS NULL;
+            UPDATE "FinancialCases" SET "TenantId" = '00000000-0000-0000-0000-000000000001' WHERE "TenantId" IS NULL;
+            ALTER TABLE "FinancialCases" ALTER COLUMN "TenantId" SET NOT NULL;
+            ALTER TABLE "FinancialCases" DROP CONSTRAINT IF EXISTS "FK_FinancialCases_Tenants_TenantId";
+            ALTER TABLE "FinancialCases" ADD CONSTRAINT "FK_FinancialCases_Tenants_TenantId"
+                FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE;
+            CREATE INDEX IF NOT EXISTS "IX_FinancialCases_TenantId" ON "FinancialCases" ("TenantId");
+
+            ALTER TABLE "FinancialCaseLinks" ADD COLUMN IF NOT EXISTS "TenantId" uuid;
+            UPDATE "FinancialCaseLinks" l
+            SET "TenantId" = fc."TenantId"
+            FROM "FinancialCases" fc
+            WHERE l."FinancialCaseId" = fc."Id" AND l."TenantId" IS NULL;
+            UPDATE "FinancialCaseLinks" SET "TenantId" = '00000000-0000-0000-0000-000000000001' WHERE "TenantId" IS NULL;
+            ALTER TABLE "FinancialCaseLinks" ALTER COLUMN "TenantId" SET NOT NULL;
+            ALTER TABLE "FinancialCaseLinks" DROP CONSTRAINT IF EXISTS "FK_FinancialCaseLinks_Tenants_TenantId";
+            ALTER TABLE "FinancialCaseLinks" ADD CONSTRAINT "FK_FinancialCaseLinks_Tenants_TenantId"
+                FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE;
+            CREATE INDEX IF NOT EXISTS "IX_FinancialCaseLinks_TenantId" ON "FinancialCaseLinks" ("TenantId");
+
+            ALTER TABLE "CaseAuditEvents" ADD COLUMN IF NOT EXISTS "TenantId" uuid;
+            UPDATE "CaseAuditEvents" a
+            SET "TenantId" = fc."TenantId"
+            FROM "FinancialCases" fc
+            WHERE a."FinancialCaseId" = fc."Id" AND a."TenantId" IS NULL;
+            UPDATE "CaseAuditEvents" SET "TenantId" = '00000000-0000-0000-0000-000000000001' WHERE "TenantId" IS NULL;
+            ALTER TABLE "CaseAuditEvents" ALTER COLUMN "TenantId" SET NOT NULL;
+            ALTER TABLE "CaseAuditEvents" DROP CONSTRAINT IF EXISTS "FK_CaseAuditEvents_Tenants_TenantId";
+            ALTER TABLE "CaseAuditEvents" ADD CONSTRAINT "FK_CaseAuditEvents_Tenants_TenantId"
+                FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE;
+            CREATE INDEX IF NOT EXISTS "IX_CaseAuditEvents_TenantId" ON "CaseAuditEvents" ("TenantId");
+
+            ALTER TABLE "FinancialGraphRelations" ADD COLUMN IF NOT EXISTS "TenantId" uuid;
+            UPDATE "FinancialGraphRelations" g
+            SET "TenantId" = COALESCE(
+                (SELECT o."TenantId" FROM "Orders" o WHERE g."FromEntityId" = o."Id" OR g."ToEntityId" = o."Id"),
+                (SELECT p."TenantId" FROM "Payments" p WHERE g."FromEntityId" = p."Id" OR g."ToEntityId" = p."Id"),
+                (SELECT d."TenantId" FROM "Discrepancies" d WHERE g."FromEntityId" = d."Id" OR g."ToEntityId" = d."Id"),
+                (SELECT fc."TenantId" FROM "FinancialCases" fc WHERE g."FromEntityId" = fc."Id" OR g."ToEntityId" = fc."Id"),
+                (SELECT l."TenantId" FROM "FinancialCaseLinks" l WHERE g."FromEntityId" = l."Id" OR g."ToEntityId" = l."Id")
+            )
+            WHERE g."TenantId" IS NULL;
+            UPDATE "FinancialGraphRelations" SET "TenantId" = '00000000-0000-0000-0000-000000000001' WHERE "TenantId" IS NULL;
+            ALTER TABLE "FinancialGraphRelations" ALTER COLUMN "TenantId" SET NOT NULL;
+            ALTER TABLE "FinancialGraphRelations" DROP CONSTRAINT IF EXISTS "FK_FinancialGraphRelations_Tenants_TenantId";
+            ALTER TABLE "FinancialGraphRelations" ADD CONSTRAINT "FK_FinancialGraphRelations_Tenants_TenantId"
+                FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE;
+            DROP INDEX IF EXISTS "IX_FinancialGraphRelations_Nodes_Relation";
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_FinancialGraphRelations_TenantId_Nodes_Relation"
+                ON "FinancialGraphRelations" ("TenantId", "FromNodeType", "FromEntityId", "ToNodeType", "ToEntityId", "RelationType");
+            CREATE INDEX IF NOT EXISTS "IX_FinancialGraphRelations_TenantId" ON "FinancialGraphRelations" ("TenantId");
+
 
             CREATE TABLE IF NOT EXISTS "AccountingSettings" (
                 "Id" uuid NOT NULL PRIMARY KEY,

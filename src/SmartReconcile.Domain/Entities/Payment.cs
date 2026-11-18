@@ -7,6 +7,7 @@ public sealed class Payment
     private Payment() { }
 
     public Guid Id { get; private set; }
+    public Guid TenantId { get; private set; }
     public Guid OrderId { get; private set; }
     public string TransactionId { get; private set; } = string.Empty;
     public decimal Amount { get; private set; }
@@ -17,6 +18,7 @@ public sealed class Payment
     public Order? Order { get; private set; }
 
     public static Payment Create(
+        Guid tenantId,
         Guid orderId,
         string transactionId,
         decimal amount,
@@ -24,6 +26,7 @@ public sealed class Payment
         DateTime paidAtUtc,
         decimal feeAmount = 0m)
     {
+        if (tenantId == Guid.Empty) throw new ArgumentException("Tenant id is required.", nameof(tenantId));
         if (orderId == Guid.Empty) throw new ArgumentException("Order id is required.", nameof(orderId));
         if (string.IsNullOrWhiteSpace(transactionId)) throw new ArgumentException("Transaction id is required.", nameof(transactionId));
         if (feeAmount < 0) throw new ArgumentOutOfRangeException(nameof(feeAmount));
@@ -31,6 +34,7 @@ public sealed class Payment
         return new Payment
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId,
             OrderId = orderId,
             TransactionId = transactionId.Trim(),
             Amount = decimal.Round(amount, 2),
