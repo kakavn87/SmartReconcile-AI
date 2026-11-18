@@ -38,7 +38,7 @@ public sealed class ShopifySyncService(
             };
 
             var order = await db.Orders.FirstOrDefaultAsync(
-                x => x.OrderNumber == orderNumber,
+                x => x.TenantId == connection.TenantId && x.OrderNumber == orderNumber,
                 cancellationToken);
 
             if (order is not null)
@@ -59,7 +59,8 @@ public sealed class ShopifySyncService(
                     source.TotalAmount,
                     status,
                     source.CreatedAtUtc,
-                    currency: source.Currency);
+                    currency: source.Currency,
+                    tenantId: connection.TenantId);
 
                 await db.Orders.AddAsync(order, cancellationToken);
                 importedOrders++;
