@@ -128,7 +128,7 @@ public sealed class ShopifyWebhookService(
                 break;
 
             case "customers/redact":
-                await ProcessCustomerRedactionAsync(webhook.PayloadJson, cancellationToken);
+                await ProcessCustomerRedactionAsync(webhook.ConnectionId, webhook.PayloadJson, cancellationToken);
                 break;
 
             case "shop/redact":
@@ -155,7 +155,7 @@ public sealed class ShopifyWebhookService(
         return Task.CompletedTask;
     }
 
-    private async Task ProcessCustomerRedactionAsync(string rawBody, CancellationToken cancellationToken)
+    private async Task ProcessCustomerRedactionAsync(Guid connectionId, string rawBody, CancellationToken cancellationToken)
     {
         using var document = JsonDocument.Parse(rawBody);
         var root = document.RootElement;
@@ -168,11 +168,6 @@ public sealed class ShopifyWebhookService(
 
         if (string.IsNullOrWhiteSpace(email))
             return;
-
-        var connectionId = await db.WebhookEvents
-            .Where(x => x.Id == webhook.Id)
-            .Select(x => x.ConnectionId)
-            .FirstAsync(cancellationToken);
 
         var tenantId = await db.IntegrationConnections
             .Where(x => x.Id == connectionId)
