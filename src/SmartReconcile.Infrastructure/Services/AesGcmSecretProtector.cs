@@ -72,19 +72,27 @@ public sealed class AesGcmSecretProtector : ISecretProtector
         var value = configuration["Security:EncryptionKey"]
             ?? Environment.GetEnvironmentVariable("SMARTRECONCILE_ENCRYPTION_KEY");
 
-        if (string.IsNullOrWhiteSpace(value))
-            throw new InvalidOperationException("Security:EncryptionKey is required for secret protection.");
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            try
+            {
+                var key = Convert.FromBase64String(value);
+                if (key.Length != KeySize)
+                    throw new InvalidOperationException("Security:EncryptionKey must be a base64-encoded 32-byte key.");
+                return key;
+            }
+            catch (FormatException ex)
+            {
+                throw new InvalidOperationException("Security:EncryptionKey must be a base64-encoded 32-byte key.", ex);
+            }
+        }
 
-        try
-        {
-            var key = Convert.FromBase64String(value);
-            if (key.Length != KeySize)
-                throw new InvalidOperationException("Security:EncryptionKey must be a base64-encoded 32-byte key.");
-            return key;
-        }
-        catch (FormatException ex)
-        {
-            throw new InvalidOperationException("Security:EncryptionKey must be a base64-encoded 32-byte key.", ex);
-        }
+        // Render/demo fallback: derive a stable 256-bit key from the Shopify client secret.
+        // A dedicated Security:EncryptionKey remains preferred for production and secret rotation.
+        var clientSecret = configuration["Shopify:ClientSecret"];
+        if (string.IsNullOrWhiteSpace(clientSecret))
+            throw new InvalidOperationException("Security:EncryptionKey or Shopify:ClientSecret is required for secret protection.");
+
+        return SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(clientSecret));
     }
 }
