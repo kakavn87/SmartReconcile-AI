@@ -6,6 +6,7 @@ namespace SmartReconcile.Application.Abstractions;
 public interface ITenantRepository
 {
     Task<Tenant?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+    Task<Tenant?> GetBySlugAsync(string slug, CancellationToken cancellationToken);
     Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken);
     Task AddAsync(Tenant tenant, CancellationToken cancellationToken);
 }
