@@ -153,11 +153,15 @@ export class IntegrationenPage {
     if (!this.isEmbedded()) {
       this.loading.set(false);
       this.error.set(null);
+      this.session.set(null);
+      this.connections.set([]);
       return;
     }
 
     this.loading.set(true);
     this.error.set(null);
+    this.session.set(null);
+    this.connections.set([]);
 
     this.api.shopifySession().subscribe({
       next: session => {
