@@ -3,8 +3,6 @@ using Microsoft.Extensions.Options;
 using SmartReconcile.API.Integrations;
 using SmartReconcile.Application.Abstractions;
 using SmartReconcile.Domain.Entities;
-using SmartReconcile.Domain.Enums;
-
 namespace SmartReconcile.API.Controllers;
 
 [ApiController]
@@ -95,9 +93,10 @@ public sealed class ShopifyIntegrationController(
             connection.UpdateShopifyCredentials(
                 secretProtector.Protect(token.AccessToken),
                 token.Scope,
-                secretProtector.Protect(token.RefreshToken),
+                string.IsNullOrWhiteSpace(token.RefreshToken) ? connection.EncryptedRefreshToken : secretProtector.Protect(token.RefreshToken),
                 DateTime.UtcNow.AddSeconds(token.ExpiresInSeconds),
-                DateTime.UtcNow.AddSeconds(token.RefreshTokenExpiresInSeconds));
+                token.RefreshTokenExpiresInSeconds > 0 ? DateTime.UtcNow.AddSeconds(token.RefreshTokenExpiresInSeconds) : connection.RefreshTokenExpiresAtUtc);
+            await connections.SaveAsync(cancellationToken);
         }
 
         return Redirect($"{shopifyOptions.Value.FrontendUrl.TrimEnd('/')}/integrationen");
