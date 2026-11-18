@@ -90,6 +90,7 @@ public sealed class DatevExtfExporterTests
         var exporter = new DatevExtfExporter(db, new TestAccountingSettingsService(settings));
 
         var bytes = await exporter.ExportAsync(
+            tenant.Id,
             new DateOnly(2026, 11, 2),
             new DateOnly(2026, 11, 2),
             false,
@@ -119,6 +120,7 @@ public sealed class DatevExtfExporterTests
             new DateTime(2026, 11, 3, 10, 0, 0, DateTimeKind.Utc));
 
         var payment = Payment.Create(
+            tenant.Id,
             order.Id,
             "PAY-TEST-5",
             119m,
@@ -191,7 +193,7 @@ public sealed class DatevExtfExporterTests
 
     private sealed class TestAccountingSettingsService(AccountingSettings settings) : IAccountingSettingsService
     {
-        public Task<AccountingSettingsDto> GetAsync(CancellationToken cancellationToken)
+        public Task<AccountingSettingsDto> GetAsync(Guid tenantId, CancellationToken cancellationToken)
             => Task.FromResult(new AccountingSettingsDto(
                 settings.Id,
                 settings.TenantId,
@@ -205,6 +207,7 @@ public sealed class DatevExtfExporterTests
                 settings.UpdatedAtUtc));
 
         public Task<AccountingSettingsDto> UpdateAsync(
+            Guid tenantId,
             UpdateAccountingSettingsRequest request,
             CancellationToken cancellationToken)
             => throw new NotSupportedException();
