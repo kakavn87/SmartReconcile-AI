@@ -143,7 +143,7 @@ public sealed class ShopifyWebhookService(
         if (webhook.EventType is "orders/create" or "orders/updated" or "orders/paid" or
             "orders/cancelled" or "orders/delete" or "refunds/create")
         {
-            await reconciliation.ReconcileAsync(cancellationToken);
+            await reconciliation.ReconcileAsync(webhook.TenantId, cancellationToken);
         }
     }
 
@@ -356,7 +356,7 @@ public sealed class ShopifyWebhookService(
                 continue;
 
             var externalTransactionId = $"SHOPIFY-{transactionId}";
-            if (await db.Payments.AnyAsync(x => x.TransactionId == externalTransactionId, cancellationToken))
+            if (await db.Payments.AnyAsync(x => x.TenantId == tenantId && x.TransactionId == externalTransactionId, cancellationToken))
                 continue;
 
             var transactionAmount = ParseDecimal(transaction, "amount");
@@ -367,6 +367,7 @@ public sealed class ShopifyWebhookService(
 
             await db.Payments.AddAsync(
                 Payment.Create(
+                    tenantId,
                     order.Id,
                     externalTransactionId,
                     transactionAmount,
@@ -430,7 +431,7 @@ public sealed class ShopifyWebhookService(
             return;
 
         var discrepancies = await db.Discrepancies
-            .Where(x => x.OrderId == order.Id)
+            .Where(x => x.TenantId == tenantId && x.OrderId == order.Id)
             .ToListAsync(cancellationToken);
 
         if (discrepancies.Count > 0)
@@ -485,12 +486,15 @@ public sealed class ShopifyWebhookService(
         if (successfulRefundAmount <= 0m)
             return;
 
+        var tenantId = await db.IntegrationConnections.Where(x => x.Id == connectionId).Select(x => x.TenantId).FirstOrDefaultAsync(cancellationToken);
+        if (tenantId == Guid.Empty) return;
+
         var payments = new List<Payment>();
 
         foreach (var parentId in parentTransactionIds)
         {
             var payment = await db.Payments.FirstOrDefaultAsync(
-                x => x.TransactionId == $"SHOPIFY-{parentId}",
+                x => x.TenantId == tenantId && x.TransactionId == $"SHOPIFY-{parentId}",
                 cancellationToken);
 
             if (payment is not null)
@@ -503,7 +507,7 @@ public sealed class ShopifyWebhookService(
             if (order is not null)
             {
                 payments = await db.Payments
-                    .Where(x => x.OrderId == order.Id && x.Status == PaymentStatus.Succeeded)
+                     .Where(x => x.TenantId == tenantId && x.OrderId == order.Id && x.Status == PaymentStatus.Succeeded)
                     .ToListAsync(cancellationToken);
             }
         }
@@ -517,7 +521,7 @@ public sealed class ShopifyWebhookService(
         if (refundTarget is not null && successfulRefundAmount >= refundTarget.Amount)
         {
             refundTarget.ChangeStatus(PaymentStatus.Refunded);
-            var order = await db.Orders.FirstOrDefaultAsync(x => x.Id == refundTarget.OrderId, cancellationToken);
+            var order = await db.Orders.FirstOrDefaultAsync(x => x.Id == refundTarget.OrderId && x.TenantId == tenantId, cancellationToken);
             order?.ChangeStatus(OrderStatus.Refunded);
             return;
         }
