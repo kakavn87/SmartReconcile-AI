@@ -11,7 +11,7 @@ public sealed class ShopifyAuthenticationService(
     IHttpClientFactory httpClientFactory,
     IOptions<ShopifyOptions> shopifyOptions) : IShopifyAuthenticationService
 {
-    public async Task<ShopifySession> AuthenticateAsync(
+    public Task<ShopifySession> AuthenticateAsync(
         string idToken,
         CancellationToken cancellationToken)
     {
@@ -22,17 +22,13 @@ public sealed class ShopifyAuthenticationService(
         var tokenId = principal.FindFirstValue("jti") ?? string.Empty;
         var expiresAt = GetUnixTimeClaim(principal, "exp");
 
-        // Phase 1 deliberately does not persist the exchanged token.
-        // Phase 2 binds the verified shop to a Tenant + IntegrationConnection.
-        await ExchangeIdTokenAsync(shopDomain, idToken, cancellationToken);
-
-        return new ShopifySession(
+        return Task.FromResult(new ShopifySession(
             shopDomain,
             userId,
             sessionId,
             tokenId,
             expiresAt,
-            false);
+            false));
     }
 
     public async Task<ShopifyTokenExchangeResult> ExchangeIdTokenAsync(
