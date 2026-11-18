@@ -7,6 +7,7 @@ public sealed class Order
     private Order() { }
 
     public Guid Id { get; private set; }
+    public Guid TenantId { get; private set; }
     public string OrderNumber { get; private set; } = string.Empty;
     public string CustomerName { get; private set; } = string.Empty;
     public string CustomerEmail { get; private set; } = string.Empty;
@@ -25,7 +26,8 @@ public sealed class Order
         OrderStatus status,
         DateTime createdAtUtc,
         decimal taxRate = 19m,
-        string currency = "EUR")
+        string currency = "EUR",
+        Guid? tenantId = null)
     {
         if (string.IsNullOrWhiteSpace(orderNumber)) throw new ArgumentException("Order number is required.", nameof(orderNumber));
         if (totalAmount < 0) throw new ArgumentOutOfRangeException(nameof(totalAmount));
@@ -34,6 +36,7 @@ public sealed class Order
         return new Order
         {
             Id = Guid.NewGuid(),
+            TenantId = tenantId ?? Guid.Empty,
             OrderNumber = orderNumber.Trim(),
             CustomerName = customerName.Trim(),
             CustomerEmail = customerEmail.Trim(),

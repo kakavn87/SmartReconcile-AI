@@ -57,4 +57,5 @@ public sealed record ShopifyTransaction(
     string Currency,
     string Status,
     string Kind,
-    decimal FeeAmount);
+    decimal FeeAmount,
+    DateTime CreatedAtUtc);

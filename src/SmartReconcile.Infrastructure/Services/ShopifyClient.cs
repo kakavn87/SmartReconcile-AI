@@ -30,12 +30,13 @@ public sealed class ShopifyClient(
         client.DefaultRequestHeaders.Add("X-Shopify-Access-Token", token);
 
         const string query = """
-        query LatestOrders {
-          orders(first: 50, sortKey: CREATED_AT, reverse: true) {
+        query LatestOrders($after: String) {
+          orders(first: 250, after: $after, sortKey: CREATED_AT, reverse: true) {
             nodes {
               id
               name
               createdAt
+              cancelledAt
               displayFinancialStatus
               totalPriceSet { shopMoney { amount currencyCode } }
               customer { displayName email }
@@ -47,26 +48,46 @@ public sealed class ShopifyClient(
                 createdAt
               }
             }
+            pageInfo { hasNextPage endCursor }
           }
         }
         """;
 
-        using var response = await client.PostAsJsonAsync(
-            $"https://{connection.ShopDomain}/admin/api/2026-10/graphql.json",
-            new { query },
-            cancellationToken);
+        var orders = new List<ShopifyOrder>();
+        string? cursor = null;
 
-        response.EnsureSuccessStatusCode();
+        do
+        {
+            using var response = await client.PostAsJsonAsync(
+                $"https://{connection.ShopDomain}/admin/api/2026-10/graphql.json",
+                new { query, variables = new { after = cursor } },
+                cancellationToken);
 
-        var payload = await response.Content.ReadFromJsonAsync<GraphQlResponse>(
-            cancellationToken: cancellationToken)
-            ?? throw new InvalidOperationException("Shopify lieferte keine Antwort.");
+            response.EnsureSuccessStatusCode();
 
-        if (payload.Errors?.Count > 0)
-            throw new InvalidOperationException(payload.Errors[0].Message);
+            var payload = await response.Content.ReadFromJsonAsync<GraphQlResponse>(
+                cancellationToken: cancellationToken)
+                ?? throw new InvalidOperationException("Shopify lieferte keine Antwort.");
 
-        return payload.Data?.Orders?.Nodes?.Select(MapOrder).ToList()
-            ?? [];
+            if (payload.Errors?.Count > 0)
+                throw new InvalidOperationException(payload.Errors[0].Message);
+
+            var page = payload.Data?.Orders
+                ?? throw new InvalidOperationException("Shopify lieferte keine Bestellungen.");
+
+            orders.AddRange(page.Nodes?.Select(MapOrder) ?? []);
+
+            if (!page.PageInfo.HasNextPage)
+                break;
+
+            if (string.IsNullOrWhiteSpace(page.PageInfo.EndCursor))
+                throw new InvalidOperationException("Shopify lieferte keinen Cursor für die nächste Bestellungsseite.");
+
+            cursor = page.PageInfo.EndCursor;
+        }
+        while (!cancellationToken.IsCancellationRequested);
+
+        return orders;
     }
 
     private async Task<string> GetValidAccessTokenAsync(IntegrationConnection connection, CancellationToken cancellationToken)
@@ -115,16 +136,19 @@ public sealed class ShopifyClient(
 
     private static ShopifyOrder MapOrder(OrderNode order)
     {
-        var amount = decimal.Parse(order.TotalPriceSet?.ShopMoney?.Amount ?? "0", System.Globalization.CultureInfo.InvariantCulture);
+        var amount = ParseDecimal(order.TotalPriceSet?.ShopMoney?.Amount);
         var transactions = order.Transactions?.Select(x => new ShopifyTransaction(
             x.Id,
-            decimal.Parse(x.AmountSet?.ShopMoney?.Amount ?? "0", System.Globalization.CultureInfo.InvariantCulture),
+            ParseDecimal(x.AmountSet?.ShopMoney?.Amount),
             x.AmountSet?.ShopMoney?.CurrencyCode ?? "EUR",
             x.Status ?? "UNKNOWN",
             x.Kind ?? "UNKNOWN",
-            0m)).ToList() ?? [];
+            0m,
+            x.CreatedAtUtc ?? DateTime.UtcNow)).ToList() ?? [];
 
-        var financialStatus = order.DisplayFinancialStatus ?? "PENDING";
+        var financialStatus = order.CancelledAtUtc is not null
+            ? "CANCELLED"
+            : order.DisplayFinancialStatus ?? "PENDING";
         return new ShopifyOrder(
             order.Id,
             order.Name ?? order.Id,
@@ -140,11 +164,12 @@ public sealed class ShopifyClient(
     private sealed record GraphQlResponse(GraphQlData? Data, List<GraphQlError>? Errors);
     private sealed record GraphQlError(string Message);
     private sealed record GraphQlData(GraphQlOrders? Orders);
-    private sealed record GraphQlOrders(List<OrderNode>? Nodes);
+    private sealed record GraphQlOrders(List<OrderNode>? Nodes, PageInfo PageInfo);
     private sealed record OrderNode(
         string Id,
         string? Name,
         DateTime CreatedAtUtc,
+        DateTime? CancelledAtUtc,
         string? DisplayFinancialStatus,
         MoneySet? TotalPriceSet,
         CustomerNode? Customer,
@@ -157,5 +182,15 @@ public sealed class ShopifyClient(
         DateTime? CreatedAtUtc);
     private sealed record MoneySet(Money? ShopMoney);
     private sealed record Money(string Amount, string CurrencyCode);
+    private sealed record PageInfo(bool HasNextPage, string? EndCursor);
+
+    private static decimal ParseDecimal(string? value)
+        => decimal.TryParse(
+            value,
+            System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var parsed)
+            ? parsed
+            : 0m;
     private sealed record CustomerNode(string? DisplayName, string? Email);
 }

@@ -23,7 +23,9 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
         modelBuilder.Entity<Order>(e =>
         {
             e.HasKey(x => x.Id);
-            e.HasIndex(x => x.OrderNumber).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.OrderNumber }).IsUnique();
+            e.HasIndex(x => x.TenantId);
+            e.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
             e.Property(x => x.TotalAmount).HasPrecision(18, 2);
             e.Property(x => x.TaxRate).HasPrecision(5, 2);
             e.Property(x => x.OrderNumber).HasMaxLength(50).IsRequired();

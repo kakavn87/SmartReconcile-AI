@@ -27,6 +27,21 @@ public static class IntegrationSchemaInitializer
             ON CONFLICT ("Id") DO NOTHING;
 
             ALTER TABLE "Orders" ADD COLUMN IF NOT EXISTS "TaxRate" numeric(5,2) NOT NULL DEFAULT 19;
+            ALTER TABLE "Orders" ADD COLUMN IF NOT EXISTS "TenantId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+            UPDATE "Orders"
+            SET "TenantId" = '00000000-0000-0000-0000-000000000001'
+            WHERE "TenantId" IS NULL;
+            ALTER TABLE "Orders"
+                DROP CONSTRAINT IF EXISTS "FK_Orders_Tenants_TenantId";
+            ALTER TABLE "Orders"
+                ADD CONSTRAINT "FK_Orders_Tenants_TenantId"
+                FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE;
+            DROP INDEX IF EXISTS "IX_Orders_OrderNumber";
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_Orders_TenantId_OrderNumber"
+                ON "Orders" ("TenantId", "OrderNumber");
+            CREATE INDEX IF NOT EXISTS "IX_Orders_TenantId"
+                ON "Orders" ("TenantId");
+
             ALTER TABLE "Payments" ADD COLUMN IF NOT EXISTS "FeeAmount" numeric(18,2) NOT NULL DEFAULT 0;
 
             CREATE TABLE IF NOT EXISTS "AccountingSettings" (

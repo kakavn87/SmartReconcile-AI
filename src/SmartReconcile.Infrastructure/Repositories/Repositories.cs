@@ -9,7 +9,12 @@ namespace SmartReconcile.Infrastructure.Repositories;
 public sealed class OrderRepository(SmartReconcileDbContext db) : IOrderRepository
 {
     public Task<List<Order>> GetAllAsync(CancellationToken ct) => db.Orders.AsNoTracking().OrderByDescending(x => x.CreatedAtUtc).ToListAsync(ct);
+    public Task<List<Order>> GetAllAsync(Guid tenantId, CancellationToken ct) => db.Orders.AsNoTracking()
+        .Where(x => x.TenantId == tenantId)
+        .OrderByDescending(x => x.CreatedAtUtc)
+        .ToListAsync(ct);
     public Task<Order?> GetByIdAsync(Guid id, CancellationToken ct) => db.Orders.FirstOrDefaultAsync(x => x.Id == id, ct);
+    public Task<Order?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken ct) => db.Orders.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId, ct);
     public async Task AddAsync(Order order, CancellationToken ct) { await db.Orders.AddAsync(order, ct); await db.SaveChangesAsync(ct); }
     public Task<int> CountAsync(CancellationToken ct) => db.Orders.CountAsync(ct);
 }

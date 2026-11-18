@@ -38,7 +38,7 @@ public sealed class ShopifySyncService(
             };
 
             var order = await db.Orders.FirstOrDefaultAsync(
-                x => x.OrderNumber == orderNumber,
+                x => x.TenantId == connection.TenantId && x.OrderNumber == orderNumber,
                 cancellationToken);
 
             if (order is not null)
@@ -59,7 +59,8 @@ public sealed class ShopifySyncService(
                     source.TotalAmount,
                     status,
                     source.CreatedAtUtc,
-                    currency: source.Currency);
+                    currency: source.Currency,
+                    tenantId: connection.TenantId);
 
                 await db.Orders.AddAsync(order, cancellationToken);
                 importedOrders++;
@@ -70,12 +71,18 @@ public sealed class ShopifySyncService(
                          (string.Equals(x.Kind, "SALE", StringComparison.OrdinalIgnoreCase) ||
                           string.Equals(x.Kind, "CAPTURE", StringComparison.OrdinalIgnoreCase))))
             {
+                var transactionId = $"SHOPIFY-{transaction.ExternalTransactionId}";
+                if (await db.Payments.AnyAsync(
+                        x => x.TransactionId == transactionId,
+                        cancellationToken))
+                    continue;
+
                 var payment = Payment.Create(
                     order.Id,
-                    $"SHOPIFY-{transaction.ExternalTransactionId}",
+                    transactionId,
                     transaction.Amount,
                     PaymentStatus.Succeeded,
-                    DateTime.UtcNow);
+                    transaction.CreatedAtUtc == default ? DateTime.UtcNow : transaction.CreatedAtUtc);
 
                 await db.Payments.AddAsync(payment, cancellationToken);
                 importedPayments++;
