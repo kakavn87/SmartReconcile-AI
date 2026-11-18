@@ -27,32 +27,43 @@ public sealed class ShopifySyncService(
         foreach (var source in orders)
         {
             var orderNumber = $"SHOPIFY-{source.OrderNumber}";
-            if (await db.Orders.AnyAsync(x => x.OrderNumber == orderNumber, cancellationToken))
-            {
-                skipped++;
-                continue;
-            }
-
             var status = source.FinancialStatus.ToUpperInvariant() switch
             {
                 "PAID" => OrderStatus.Paid,
                 "PARTIALLY_PAID" => OrderStatus.Paid,
                 "AUTHORIZED" => OrderStatus.Pending,
-                "REFUNDED" => OrderStatus.Paid,
+                "REFUNDED" => OrderStatus.Refunded,
+                "CANCELLED" => OrderStatus.Cancelled,
                 _ => OrderStatus.Pending
             };
 
-            var order = Order.Create(
-                orderNumber,
-                source.CustomerName,
-                source.CustomerEmail ?? string.Empty,
-                source.TotalAmount,
-                status,
-                source.CreatedAtUtc,
-                currency: source.Currency);
+            var order = await db.Orders.FirstOrDefaultAsync(
+                x => x.OrderNumber == orderNumber,
+                cancellationToken);
 
-            await db.Orders.AddAsync(order, cancellationToken);
-            importedOrders++;
+            if (order is not null)
+            {
+                order.UpdateFromShopify(
+                    source.TotalAmount,
+                    source.Currency,
+                    status,
+                    source.CreatedAtUtc);
+                skipped++;
+            }
+            else
+            {
+                order = Order.Create(
+                    orderNumber,
+                    source.CustomerName,
+                    source.CustomerEmail ?? string.Empty,
+                    source.TotalAmount,
+                    status,
+                    source.CreatedAtUtc,
+                    currency: source.Currency);
+
+                await db.Orders.AddAsync(order, cancellationToken);
+                importedOrders++;
+            }
 
             foreach (var transaction in source.Transactions.Where(x =>
                          string.Equals(x.Status, "SUCCESS", StringComparison.OrdinalIgnoreCase) &&
