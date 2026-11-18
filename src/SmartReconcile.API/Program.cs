@@ -17,7 +17,6 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.Configure<ShopifyOptions>(builder.Configuration.GetSection("Shopify"));
-builder.Services.Configure<ShopifyAuthenticationOptions>(builder.Configuration.GetSection("ShopifyAuthentication"));
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<ShopifyOAuthStateStore>();
 builder.Services.AddScoped<IShopifyOAuthService, ShopifyOAuthService>();
