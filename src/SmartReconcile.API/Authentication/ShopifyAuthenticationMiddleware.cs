@@ -1,3 +1,5 @@
+using SmartReconcile.Domain.Entities;
+
 namespace SmartReconcile.API.Authentication;
 
 public sealed class ShopifyAuthenticationMiddleware(
