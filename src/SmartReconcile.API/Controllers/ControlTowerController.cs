@@ -63,7 +63,7 @@ public sealed class ControlTowerController(IControlTowerService service) : Contr
     }
 
     [HttpGet("graph/{nodeType}/{entityId:guid}")]
-    public async Task<ActionResult<List<FinancialGraphRelationDto>> Graph(FinancialNodeType nodeType, Guid entityId, CancellationToken ct)
+    public async Task<ActionResult<List<FinancialGraphRelationDto>>> Graph(FinancialNodeType nodeType, Guid entityId, CancellationToken ct)
     {
         var tenant = ShopifyAuthenticationContext.GetTenant(HttpContext);
         if (tenant is null) return Unauthorized();
