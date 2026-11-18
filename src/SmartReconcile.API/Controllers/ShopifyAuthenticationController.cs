@@ -21,18 +21,7 @@ public sealed class ShopifyAuthenticationController(IConfiguration configuration
     {
         var session = ShopifyAuthenticationContext.GetSession(HttpContext);
         if (session is null)
-        {
-            if (ShopifyAuthenticationContext.IsDemoMode(HttpContext))
-            {
-                return Ok(new
-                {
-                    mode = "demo",
-                    authenticated = false
-                });
-            }
-
-            return Unauthorized();
-        }
+            return Unauthorized(new { message = "Shopify authentication is required." });
 
         return Ok(new
         {
