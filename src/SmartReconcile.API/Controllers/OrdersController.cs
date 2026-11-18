@@ -17,15 +17,31 @@ public sealed class OrdersController(
         var connection = ShopifyAuthenticationContext.GetConnection(HttpContext);
         if (connection?.Provider == SmartReconcile.Domain.Enums.IntegrationProvider.Shopify)
         {
-            await shopifySync.SyncAsync(connection.Id, ct);
+            try
+            {
+                await shopifySync.SyncAsync(connection.Id, ct);
+            }
+            catch
+            {
+                // The orders list must remain available from PostgreSQL even when
+                // Shopify is temporarily unavailable.
+            }
         }
 
-        return Ok(await service.GetAllAsync(ct));
+        var tenant = ShopifyAuthenticationContext.GetTenant(HttpContext);
+        return tenant is null
+            ? Unauthorized()
+            : Ok(await service.GetAllAsync(tenant.Id, ct));
     }
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<OrderDto>> GetById(Guid id, CancellationToken ct)
-        => await service.GetByIdAsync(id, ct) is { } x ? Ok(x) : NotFound();
+    {
+        var tenant = ShopifyAuthenticationContext.GetTenant(HttpContext);
+        return tenant is null
+            ? Unauthorized()
+            : await service.GetByIdAsync(id, tenant.Id, ct) is { } x ? Ok(x) : NotFound();
+    }
 
     [HttpPost]
     public async Task<ActionResult<OrderDto>> Create(CreateOrderRequest request, CancellationToken ct)
