@@ -31,7 +31,7 @@ public sealed class ShopifyClient(
 
         const string query = """
         query LatestOrders($after: String) {
-          orders(first: 250, after: $after, sortKey: CREATED_AT, reverse: true) {
+          orders(first: 50, after: $after, sortKey: CREATED_AT, reverse: true) {
             nodes {
               id
               name
