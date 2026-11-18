@@ -4,10 +4,11 @@ namespace SmartReconcile.Infrastructure.Persistence;
 
 public static class LegacyDemoDataCleanup
 {
+    private static readonly Guid DemoTenantId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     public static async Task RemoveAsync(SmartReconcileDbContext db, CancellationToken cancellationToken)
     {
         var demoOrderIds = await db.Orders
-            .Where(x => x.OrderNumber.StartsWith("DE-2026-") &&
+            .Where(x => x.TenantId == DemoTenantId && x.OrderNumber.StartsWith("DE-2026-") &&
                         x.CustomerEmail.EndsWith("@example.de"))
             .Select(x => x.Id)
             .ToListAsync(cancellationToken);
@@ -20,7 +21,7 @@ public static class LegacyDemoDataCleanup
                 .ToListAsync(cancellationToken);
 
         var demoInvoiceIds = await db.Invoices
-            .Where(x => x.InvoiceNumber.StartsWith("RE-2026-") ||
+            .Where(x => x.TenantId == DemoTenantId && (x.InvoiceNumber.StartsWith("RE-2026-") ||
                         x.InvoiceNumber.StartsWith("RE-DUP-"))
             .Select(x => x.Id)
             .ToListAsync(cancellationToken);
@@ -33,7 +34,7 @@ public static class LegacyDemoDataCleanup
         if (demoEntityIds.Any())
         {
             var demoDiscrepancyIds = await db.Discrepancies
-                .Where(x => (x.OrderId.HasValue && demoOrderIds.Contains(x.OrderId.Value)) ||
+                .Where(x => x.TenantId == DemoTenantId && (x.OrderId.HasValue && demoOrderIds.Contains(x.OrderId.Value)) ||
                             (x.PaymentId.HasValue && demoPaymentIds.Contains(x.PaymentId.Value)) ||
                             (x.InvoiceId.HasValue && demoInvoiceIds.Contains(x.InvoiceId.Value)))
                 .Select(x => x.Id)
