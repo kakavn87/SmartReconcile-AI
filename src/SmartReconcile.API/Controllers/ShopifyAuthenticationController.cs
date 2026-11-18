@@ -5,8 +5,7 @@ namespace SmartReconcile.API.Controllers;
 
 [ApiController]
 [Route("api/auth/shopify")]
-public sealed class ShopifyAuthenticationController(
-    IShopifyAuthenticationService authentication) : ControllerBase
+public sealed class ShopifyAuthenticationController : ControllerBase
 {
     [HttpGet("session")]
     public IActionResult Session()
