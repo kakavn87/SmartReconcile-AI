@@ -1,7 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using SmartReconcile.Application.Abstractions;
@@ -17,8 +16,7 @@ public sealed class ShopifyAuthenticationService(
         CancellationToken cancellationToken)
     {
         var principal = ValidateIdToken(idToken);
-
-        var shopDomain = GetShopDomain(principal);
+        var shopDomain = GetAndValidateShopDomain(principal);
         var userId = principal.FindFirstValue("sub") ?? string.Empty;
         var sessionId = principal.FindFirstValue("sid") ?? string.Empty;
         var tokenId = principal.FindFirstValue("jti") ?? string.Empty;
@@ -54,7 +52,8 @@ public sealed class ShopifyAuthenticationService(
                 grant_type = "urn:ietf:params:oauth:grant-type:token-exchange",
                 requested_token_type = "urn:shopify:params:oauth:token-type:offline-access-token",
                 subject_token = idToken,
-                subject_token_type = "urn:ietf:params:oauth:token-type:id_token"
+                subject_token_type = "urn:shopify:params:oauth:token-type:id_token",
+                expiring = 1
             },
             cancellationToken);
 
@@ -91,7 +90,6 @@ public sealed class ShopifyAuthenticationService(
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(shopifyOptions.Value.ClientSecret)),
             ValidateIssuer = true,
-            ValidIssuer = null,
             IssuerValidator = ValidateIssuer,
             ValidateAudience = true,
             ValidAudience = shopifyOptions.Value.ClientId,
@@ -103,7 +101,9 @@ public sealed class ShopifyAuthenticationService(
         var handler = new JwtSecurityTokenHandler();
         try
         {
-            return handler.ValidateToken(idToken, parameters, out _);
+            var principal = handler.ValidateToken(idToken, parameters, out _);
+            ValidateIssuerMatchesDestination(principal);
+            return principal;
         }
         catch (SecurityTokenException ex)
         {
@@ -120,8 +120,8 @@ public sealed class ShopifyAuthenticationService(
         SecurityToken securityToken,
         TokenValidationParameters validationParameters)
     {
-        var uri = new Uri(issuer, UriKind.Absolute);
-        if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+        if (!Uri.TryCreate(issuer, UriKind.Absolute, out var uri) ||
+            !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(uri.AbsolutePath.TrimEnd('/'), "/admin", StringComparison.OrdinalIgnoreCase) ||
             !uri.Host.EndsWith(".myshopify.com", StringComparison.OrdinalIgnoreCase))
         {
@@ -131,15 +131,28 @@ public sealed class ShopifyAuthenticationService(
         return issuer;
     }
 
-    private static string GetShopDomain(ClaimsPrincipal principal)
+    private static void ValidateIssuerMatchesDestination(ClaimsPrincipal principal)
+    {
+        var issuer = principal.FindFirstValue("iss");
+        var destination = principal.FindFirstValue("dest");
+
+        if (!Uri.TryCreate(issuer, UriKind.Absolute, out var issuerUri) ||
+            !Uri.TryCreate(destination, UriKind.Absolute, out var destinationUri) ||
+            !string.Equals(issuerUri.Host, destinationUri.Host, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new UnauthorizedAccessException("Shopify ID token issuer and destination do not match.");
+        }
+    }
+
+    private static string GetAndValidateShopDomain(ClaimsPrincipal principal)
     {
         var destination = principal.FindFirstValue("dest");
-        if (string.IsNullOrWhiteSpace(destination))
-            throw new UnauthorizedAccessException("Shopify ID token is missing the destination claim.");
-
-        var uri = new Uri(destination, UriKind.Absolute);
-        if (!uri.Host.EndsWith(".myshopify.com", StringComparison.OrdinalIgnoreCase))
+        if (!Uri.TryCreate(destination, UriKind.Absolute, out var uri) ||
+            !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+            !uri.Host.EndsWith(".myshopify.com", StringComparison.OrdinalIgnoreCase))
+        {
             throw new UnauthorizedAccessException("Shopify ID token contains an invalid shop domain.");
+        }
 
         return uri.Host.ToLowerInvariant();
     }
