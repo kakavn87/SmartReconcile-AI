@@ -8,8 +8,7 @@ namespace SmartReconcile.API.Controllers;
 [ApiController]
 [Route("api/v1/integrations")]
 public sealed class IntegrationsController(
-    IIntegrationService service,
-    ITenantRepository tenants) : ControllerBase
+    IIntegrationService service) : ControllerBase
 {
     [HttpPost("tenants")]
     public async Task<ActionResult<TenantDto>> CreateTenant(CreateTenantRequest request, CancellationToken ct)
@@ -66,13 +65,6 @@ public sealed class IntegrationsController(
 
     private async Task<SmartReconcile.Domain.Entities.Tenant?> ResolveCurrentTenantAsync(CancellationToken ct)
     {
-        var tenant = ShopifyAuthenticationContext.GetTenant(HttpContext);
-
-        if (tenant is null && ShopifyAuthenticationContext.IsDemoMode(HttpContext))
-        {
-            tenant = await tenants.GetBySlugAsync("smartreconcile-demo", ct);
-        }
-
-        return tenant;
+        return ShopifyAuthenticationContext.GetTenant(HttpContext);
     }
 }
