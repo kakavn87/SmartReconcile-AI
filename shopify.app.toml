@@ -1,3 +1,8 @@
+client_id = "c97d5adf1b56a9c876f08e91267a9b"
+application_url = "https://smartreconcile-ai-frontend.onrender.com"
+embedded = true
+name = "SmartReconcile AI"
+
 [webhooks]
 api_version = "2026-10"
 
@@ -15,3 +20,13 @@ uri = "https://smartreconcile-ai-api.onrender.com/api/webhooks/shopify"
 [[webhooks.subscriptions]]
 uri = "https://smartreconcile-ai-api.onrender.com/api/webhooks/shopify"
 compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+
+[access_scopes]
+scopes = "read_orders,read_shopify_payments_payouts"
+optional_scopes = []
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://smartreconcile-ai-api.onrender.com/api/integrations/shopify/callback"
+]
