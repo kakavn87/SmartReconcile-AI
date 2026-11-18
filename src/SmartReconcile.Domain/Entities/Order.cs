@@ -45,10 +45,4 @@ public sealed class Order
     }
 
     public void ChangeStatus(OrderStatus status) => Status = status;
-
-    public void RedactCustomerData()
-    {
-        CustomerName = "Shopify Kunde";
-        CustomerEmail = string.Empty;
-    }
 }
