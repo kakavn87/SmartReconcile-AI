@@ -6,6 +6,7 @@ namespace SmartReconcile.Application.Abstractions;
 public interface ITenantRepository
 {
     Task<Tenant?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+    Task<Tenant?> GetBySlugAsync(string slug, CancellationToken cancellationToken);
     Task<bool> ExistsBySlugAsync(string slug, CancellationToken cancellationToken);
     Task AddAsync(Tenant tenant, CancellationToken cancellationToken);
 }
@@ -14,9 +15,11 @@ public interface IIntegrationConnectionRepository
 {
     Task<IntegrationConnection?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task<IntegrationConnection?> ResolveActiveByApiKeyHashAsync(string apiKeyHash, CancellationToken cancellationToken);
+    Task<IntegrationConnection?> GetShopifyByDomainAsync(string shopDomain, CancellationToken cancellationToken);
     Task<List<IntegrationConnection>> GetForTenantAsync(Guid tenantId, CancellationToken cancellationToken);
     Task<List<IntegrationConnection>> GetAllAsync(CancellationToken cancellationToken);
     Task AddAsync(IntegrationConnection connection, CancellationToken cancellationToken);
+    Task SaveAsync(CancellationToken cancellationToken);
 }
 
 public interface IWebhookEventRepository

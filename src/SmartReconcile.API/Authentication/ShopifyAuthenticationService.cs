@@ -39,18 +39,20 @@ public sealed class ShopifyAuthenticationService(
         var normalizedShop = shopDomain.Trim().ToLowerInvariant();
 
         using var client = httpClientFactory.CreateClient();
-        using var response = await client.PostAsJsonAsync(
+        using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["client_id"] = shopifyOptions.Value.ClientId,
+            ["client_secret"] = shopifyOptions.Value.ClientSecret,
+            ["grant_type"] = "urn:ietf:params:oauth:grant-type:token-exchange",
+            ["requested_token_type"] = "urn:shopify:params:oauth:token-type:offline-access-token",
+            ["subject_token"] = idToken,
+            ["subject_token_type"] = "urn:shopify:params:oauth:token-type:id_token",
+            ["expiring"] = "1"
+        });
+
+        using var response = await client.PostAsync(
             $"https://{normalizedShop}/admin/oauth/access_token",
-            new
-            {
-                client_id = shopifyOptions.Value.ClientId,
-                client_secret = shopifyOptions.Value.ClientSecret,
-                grant_type = "urn:ietf:params:oauth:grant-type:token-exchange",
-                requested_token_type = "urn:shopify:params:oauth:token-type:offline-access-token",
-                subject_token = idToken,
-                subject_token_type = "urn:shopify:params:oauth:token-type:id_token",
-                expiring = 1
-            },
+            content,
             cancellationToken);
 
         if (!response.IsSuccessStatusCode)

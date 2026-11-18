@@ -10,6 +10,9 @@ public sealed class TenantRepository(SmartReconcileDbContext db) : ITenantReposi
     public Task<Tenant?> GetByIdAsync(Guid id, CancellationToken ct)
         => db.Tenants.FirstOrDefaultAsync(x => x.Id == id, ct);
 
+    public Task<Tenant?> GetBySlugAsync(string slug, CancellationToken ct)
+        => db.Tenants.FirstOrDefaultAsync(x => x.Slug == slug, ct);
+
     public Task<bool> ExistsBySlugAsync(string slug, CancellationToken ct)
         => db.Tenants.AnyAsync(x => x.Slug == slug, ct);
 
@@ -29,6 +32,13 @@ public sealed class IntegrationConnectionRepository(SmartReconcileDbContext db) 
         => db.IntegrationConnections
             .FirstOrDefaultAsync(x => x.ApiKeyHash == apiKeyHash && (x.Status == SmartReconcile.Domain.Enums.ConnectionStatus.Active || x.Status == SmartReconcile.Domain.Enums.ConnectionStatus.Connected), ct);
 
+    public Task<IntegrationConnection?> GetShopifyByDomainAsync(string shopDomain, CancellationToken ct)
+        => db.IntegrationConnections
+            .FirstOrDefaultAsync(
+                x => x.Provider == SmartReconcile.Domain.Enums.IntegrationProvider.Shopify
+                    && x.ShopDomain == shopDomain,
+                ct);
+
     public Task<List<IntegrationConnection>> GetForTenantAsync(Guid tenantId, CancellationToken ct)
         => db.IntegrationConnections
             .AsNoTracking()
@@ -44,6 +54,8 @@ public sealed class IntegrationConnectionRepository(SmartReconcileDbContext db) 
         await db.IntegrationConnections.AddAsync(connection, ct);
         await db.SaveChangesAsync(ct);
     }
+
+    public Task SaveAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 }
 
 public sealed class WebhookEventRepository(SmartReconcileDbContext db) : IWebhookEventRepository

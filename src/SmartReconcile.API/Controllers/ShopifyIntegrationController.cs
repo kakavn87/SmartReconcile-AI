@@ -3,8 +3,6 @@ using Microsoft.Extensions.Options;
 using SmartReconcile.API.Integrations;
 using SmartReconcile.Application.Abstractions;
 using SmartReconcile.Domain.Entities;
-using SmartReconcile.Domain.Enums;
-
 namespace SmartReconcile.API.Controllers;
 
 [ApiController]
@@ -58,18 +56,25 @@ public sealed class ShopifyIntegrationController(
         if (!oauth.VerifyCallbackHmac(query))
             return Unauthorized(new { message = "Shopify-HMAC konnte nicht verifiziert werden." });
 
-        var tenant = await tenants.GetByIdAsync(DefaultTenantId, cancellationToken);
-        if (tenant is null)
-            return Problem("Demo-Mandant wurde nicht gefunden.");
-
         var normalizedShop = shop.Trim().ToLowerInvariant();
+        var connection = await connections.GetShopifyByDomainAsync(normalizedShop, cancellationToken);
+        Tenant? tenant = connection is null
+            ? await tenants.GetBySlugAsync(normalizedShop[..^".myshopify.com".Length], cancellationToken)
+            : await tenants.GetByIdAsync(connection.TenantId, cancellationToken);
+
+        if (tenant is null)
+        {
+            tenant = Tenant.Create(
+                normalizedShop,
+                normalizedShop[..^".myshopify.com".Length]);
+            await tenants.AddAsync(tenant, cancellationToken);
+        }
+
+        if (!tenant.IsActive)
+            return Unauthorized(new { message = "Shopify tenant is inactive." });
+
         var token = await oauth.ExchangeCodeAsync(normalizedShop, code, cancellationToken);
         await oauth.RegisterWebhooksAsync(normalizedShop, token.AccessToken, cancellationToken);
-        var existing = await connections.GetForTenantAsync(tenant.Id, cancellationToken);
-        var connection = existing.FirstOrDefault(x =>
-            x.Provider == IntegrationProvider.Shopify &&
-            string.Equals(x.ShopDomain, shop.Trim(), StringComparison.OrdinalIgnoreCase));
-
         if (connection is null)
         {
             connection = IntegrationConnection.CreateShopify(
@@ -78,7 +83,7 @@ public sealed class ShopifyIntegrationController(
                 shop,
                 secretProtector.Protect(token.AccessToken),
                 token.Scope,
-                string.IsNullOrWhiteSpace(token.RefreshToken) ? null : string.IsNullOrWhiteSpace(token.RefreshToken) ? null : secretProtector.Protect(token.RefreshToken),
+                string.IsNullOrWhiteSpace(token.RefreshToken) ? null : secretProtector.Protect(token.RefreshToken),
                 DateTime.UtcNow.AddSeconds(token.ExpiresInSeconds),
                 DateTime.UtcNow.AddSeconds(token.RefreshTokenExpiresInSeconds));
             await connections.AddAsync(connection, cancellationToken);
@@ -88,14 +93,13 @@ public sealed class ShopifyIntegrationController(
             connection.UpdateShopifyCredentials(
                 secretProtector.Protect(token.AccessToken),
                 token.Scope,
-                secretProtector.Protect(token.RefreshToken),
+                string.IsNullOrWhiteSpace(token.RefreshToken) ? connection.EncryptedRefreshToken : secretProtector.Protect(token.RefreshToken),
                 DateTime.UtcNow.AddSeconds(token.ExpiresInSeconds),
-                DateTime.UtcNow.AddSeconds(token.RefreshTokenExpiresInSeconds));
+                token.RefreshTokenExpiresInSeconds > 0 ? DateTime.UtcNow.AddSeconds(token.RefreshTokenExpiresInSeconds) : connection.RefreshTokenExpiresAtUtc);
+            await connections.SaveAsync(cancellationToken);
         }
 
         return Redirect($"{shopifyOptions.Value.FrontendUrl.TrimEnd('/')}/integrationen");
     }
 
-    private static readonly Guid DefaultTenantId =
-        Guid.Parse("00000000-0000-0000-0000-000000000001");
 }

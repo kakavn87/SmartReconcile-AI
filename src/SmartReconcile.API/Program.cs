@@ -25,6 +25,7 @@ builder.Services.AddScoped<IShopifyWebhookService, ShopifyWebhookService>();
 builder.Services.AddScoped<IShopifyClient, ShopifyClient>();
 builder.Services.AddScoped<IShopifySyncService, ShopifySyncService>();
 builder.Services.AddScoped<IShopifyAuthenticationService, ShopifyAuthenticationService>();
+builder.Services.AddScoped<IShopifyTenantResolutionService, ShopifyTenantResolutionService>();
 
 var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["http://localhost:4200"];
 builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod()));
