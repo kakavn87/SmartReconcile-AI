@@ -315,6 +315,7 @@ public sealed class ControlTowerService(
                 var payment = await payments.GetByIdAsync(discrepancy.PaymentId.Value, tenantId, cancellationToken);
                 if (payment is not null)
                     links.Add(FinancialCaseLink.Create(
+                        tenantId,
                         financialCase.Id,
                         FinancialNodeType.Payment,
                         payment.Id,
@@ -328,6 +329,7 @@ public sealed class ControlTowerService(
                 var invoice = await invoices.GetByIdAsync(discrepancy.InvoiceId.Value, tenantId, cancellationToken);
                 if (invoice is not null)
                     links.Add(FinancialCaseLink.Create(
+                        tenantId,
                         financialCase.Id,
                         FinancialNodeType.Invoice,
                         invoice.Id,
