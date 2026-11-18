@@ -27,6 +27,7 @@ export class ApiService {
   accountingSettings() { return this.http.get<AccountingSettings>(API_BASE_URL + '/settings/accounting'); }
   updateAccountingSettings(request:UpdateAccountingSettingsRequest) { return this.http.put<AccountingSettings>(API_BASE_URL + '/settings/accounting', request); }
   integrationConnections(tenantId:string) { return this.http.get<IntegrationConnection[]>(API_BASE_URL + '/v1/integrations/tenants/' + tenantId + '/connections'); }
+  shopifySession() { return this.http.get<import('../models/api.models').ShopifySessionInfo>(API_BASE_URL + '/auth/shopify/session'); }
   currentTenantIntegrationConnections() { return this.http.get<IntegrationConnection[]>(API_BASE_URL + '/v1/integrations/connections'); }
   syncShopify(connectionId:string) { return this.http.post<ShopifySyncResult>(API_BASE_URL + '/integrations/shopify/' + connectionId + '/sync', {}); }
   exportDatev(from:string, to:string, onlyReconciled:boolean) {
