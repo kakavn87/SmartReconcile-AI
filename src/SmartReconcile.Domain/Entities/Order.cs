@@ -24,7 +24,8 @@ public sealed class Order
         decimal totalAmount,
         OrderStatus status,
         DateTime createdAtUtc,
-        decimal taxRate = 19m)
+        decimal taxRate = 19m,
+        string currency = "EUR")
     {
         if (string.IsNullOrWhiteSpace(orderNumber)) throw new ArgumentException("Order number is required.", nameof(orderNumber));
         if (totalAmount < 0) throw new ArgumentOutOfRangeException(nameof(totalAmount));
@@ -37,7 +38,7 @@ public sealed class Order
             CustomerName = customerName.Trim(),
             CustomerEmail = customerEmail.Trim(),
             TotalAmount = decimal.Round(totalAmount, 2),
-            Currency = "EUR",
+            Currency = string.IsNullOrWhiteSpace(currency) ? "EUR" : currency.Trim().ToUpperInvariant(),
             TaxRate = taxRate,
             Status = status,
             CreatedAtUtc = createdAtUtc
@@ -45,6 +46,18 @@ public sealed class Order
     }
 
     public void ChangeStatus(OrderStatus status) => Status = status;
+
+    public void UpdateFromShopify(
+        decimal totalAmount,
+        string currency,
+        OrderStatus status,
+        DateTime createdAtUtc)
+    {
+        TotalAmount = decimal.Round(Math.Max(totalAmount, 0m), 2);
+        Currency = string.IsNullOrWhiteSpace(currency) ? Currency : currency.Trim().ToUpperInvariant();
+        Status = status;
+        CreatedAtUtc = createdAtUtc;
+    }
 
     public void RedactCustomerData()
     {
