@@ -13,15 +13,13 @@ public interface IShopifyOAuthService
 
 public interface IShopifyWebhookService
 {
-    Task<ShopifyWebhookResult> EnqueueAsync(
+    Task<ShopifyWebhookResult> ProcessAsync(
         string rawBody,
         string hmacHeader,
         string? shopDomain,
         string? topic,
         string? webhookId,
         CancellationToken cancellationToken);
-
-    Task<int> ProcessPendingAsync(CancellationToken cancellationToken);
 }
 
 public interface IShopifyClient
