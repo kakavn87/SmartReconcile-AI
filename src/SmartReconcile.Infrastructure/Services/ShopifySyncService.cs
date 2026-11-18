@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using SmartReconcile.Application.Abstractions;
 using SmartReconcile.Domain.Entities;
 using SmartReconcile.Domain.Enums;
@@ -9,7 +10,8 @@ namespace SmartReconcile.Infrastructure.Services;
 public sealed class ShopifySyncService(
     SmartReconcileDbContext db,
     IShopifyClient shopifyClient,
-    IReconciliationService reconciliation) : IShopifySyncService
+    IReconciliationService reconciliation,
+    ILogger<ShopifySyncService> logger) : IShopifySyncService
 {
     public async Task<ShopifySyncResult> SyncAsync(Guid connectionId, CancellationToken cancellationToken)
     {
@@ -20,6 +22,11 @@ public sealed class ShopifySyncService(
             throw new InvalidOperationException("Die Verbindung ist keine Shopify-Verbindung.");
 
         var orders = await shopifyClient.GetLatestOrdersAsync(connection, cancellationToken);
+        logger.LogInformation(
+            "Shopify order sync started for connection {ConnectionId}: received {OrderCount} orders",
+            connectionId,
+            orders.Count);
+
         var importedOrders = 0;
         var importedPayments = 0;
         var skipped = 0;
@@ -43,6 +50,14 @@ public sealed class ShopifySyncService(
 
             if (order is not null)
             {
+                logger.LogInformation(
+                    "Updating Shopify order {OrderNumber}: amount={Amount} {Currency}, status={Status}, createdAt={CreatedAtUtc}",
+                    orderNumber,
+                    source.TotalAmount,
+                    source.Currency,
+                    status,
+                    source.CreatedAtUtc);
+
                 order.UpdateFromShopify(
                     source.TotalAmount,
                     source.Currency,
@@ -91,6 +106,13 @@ public sealed class ShopifySyncService(
 
         connection.MarkSynced();
         await db.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Shopify order sync saved for connection {ConnectionId}: importedOrders={ImportedOrders}, updatedOrders={UpdatedOrders}, importedPayments={ImportedPayments}",
+            connectionId,
+            importedOrders,
+            skipped,
+            importedPayments);
         await reconciliation.ReconcileAsync(cancellationToken);
 
         return new ShopifySyncResult(
