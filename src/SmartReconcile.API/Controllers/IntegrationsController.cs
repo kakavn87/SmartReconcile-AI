@@ -43,12 +43,7 @@ public sealed class IntegrationsController(
     public async Task<ActionResult<IReadOnlyList<IntegrationConnectionDto>>> GetCurrentTenantConnections(
         CancellationToken ct)
     {
-        var tenant = ShopifyAuthenticationContext.GetTenant(HttpContext);
-
-        if (tenant is null && ShopifyAuthenticationContext.IsDemoMode(HttpContext))
-        {
-            tenant = await tenants.GetBySlugAsync("smartreconcile-demo", ct);
-        }
+        var tenant = await ResolveCurrentTenantAsync(ct);
 
         if (tenant is null || !tenant.IsActive)
             return Unauthorized();
@@ -60,5 +55,24 @@ public sealed class IntegrationsController(
     public async Task<ActionResult<IReadOnlyList<IntegrationConnectionDto>>> GetConnections(
         Guid tenantId,
         CancellationToken ct)
-        => Ok(await service.GetConnectionsAsync(tenantId, ct));
+    {
+        var tenant = await ResolveCurrentTenantAsync(ct);
+
+        if (tenant is null || tenant.Id != tenantId || !tenant.IsActive)
+            return Unauthorized();
+
+        return Ok(await service.GetConnectionsAsync(tenant.Id, ct));
+    }
+
+    private async Task<SmartReconcile.Domain.Entities.Tenant?> ResolveCurrentTenantAsync(CancellationToken ct)
+    {
+        var tenant = ShopifyAuthenticationContext.GetTenant(HttpContext);
+
+        if (tenant is null && ShopifyAuthenticationContext.IsDemoMode(HttpContext))
+        {
+            tenant = await tenants.GetBySlugAsync("smartreconcile-demo", ct);
+        }
+
+        return tenant;
+    }
 }
