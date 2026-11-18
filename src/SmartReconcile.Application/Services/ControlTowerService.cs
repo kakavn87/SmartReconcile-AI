@@ -192,7 +192,7 @@ public sealed class ControlTowerService(
             cancellationToken);
 
         await cases.SaveAsync(cancellationToken);
-        return await MapCaseAsync(item, cancellationToken);
+        return await MapCaseAsync(tenantId, item, cancellationToken);
     }
 
     public async Task<FinancialCaseDto?> ResolveAsync(
@@ -222,7 +222,7 @@ public sealed class ControlTowerService(
             cancellationToken);
 
         await cases.SaveAsync(cancellationToken);
-        return await MapCaseAsync(item, cancellationToken);
+        return await MapCaseAsync(tenantId, item, cancellationToken);
     }
 
     public async Task<FinancialCaseDto?> IgnoreAsync(Guid tenantId, Guid id, CancellationToken cancellationToken)
@@ -243,7 +243,7 @@ public sealed class ControlTowerService(
             cancellationToken);
 
         await cases.SaveAsync(cancellationToken);
-        return await MapCaseAsync(item, cancellationToken);
+        return await MapCaseAsync(tenantId, item, cancellationToken);
     }
 
     public async Task<List<FinancialGraphRelationDto>> GetGraphAsync(
