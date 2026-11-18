@@ -38,15 +38,21 @@ public sealed class OrdersController(
     public async Task<ActionResult<OrderDto>> GetById(Guid id, CancellationToken ct)
     {
         var tenant = ShopifyAuthenticationContext.GetTenant(HttpContext);
-        return tenant is null
-            ? Unauthorized()
-            : await service.GetByIdAsync(id, tenant.Id, ct) is { } x ? Ok(x) : NotFound();
+        if (tenant is null)
+            return Unauthorized();
+
+        var result = await service.GetByIdAsync(id, tenant.Id, ct);
+        return result is { } x ? Ok(x) : NotFound();
     }
 
     [HttpPost]
     public async Task<ActionResult<OrderDto>> Create(CreateOrderRequest request, CancellationToken ct)
     {
-        var result = await service.CreateAsync(request, ct);
+        var tenant = ShopifyAuthenticationContext.GetTenant(HttpContext);
+        if (tenant is null)
+            return Unauthorized();
+
+        var result = await service.CreateAsync(request, tenant.Id, ct);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 }
