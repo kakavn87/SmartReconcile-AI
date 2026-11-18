@@ -26,10 +26,6 @@ export const OrdersStore=signalStore(
           error:'Bestellungen konnten nicht geladen werden.'
         })
       })))
-    )),
-    refresh:rxMethod<void>(pipe(
-      tap(()=>patchState(store,{loaded:false})),
-      tap(()=>store.load())
     ))
   }))
 );
