@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using SmartReconcile.Domain.Entities;
 
 namespace SmartReconcile.API.Authentication;
 
@@ -8,7 +9,8 @@ public sealed class ShopifyAuthenticationMiddleware(
 {
     public async Task InvokeAsync(
         HttpContext context,
-        IShopifyAuthenticationService authentication)
+        IShopifyAuthenticationService authentication,
+        IShopifyTenantResolutionService tenantResolution)
     {
         var authorization = context.Request.Headers.Authorization.FirstOrDefault();
 
@@ -35,7 +37,10 @@ public sealed class ShopifyAuthenticationMiddleware(
         try
         {
             var session = await authentication.AuthenticateAsync(idToken, context.RequestAborted);
+            var resolution = await tenantResolution.ResolveAsync(session, idToken, context.RequestAborted);
             context.Items[ShopifyAuthenticationContext.SessionItemKey] = session;
+            context.Items[ShopifyAuthenticationContext.TenantItemKey] = resolution.Tenant;
+            context.Items[ShopifyAuthenticationContext.ConnectionItemKey] = resolution.Connection;
             await next(context);
         }
         catch (UnauthorizedAccessException ex)
@@ -57,6 +62,8 @@ public static class ShopifyAuthenticationContext
 {
     public const string SessionItemKey = "SmartReconcile.ShopifySession";
     public const string DemoModeItemKey = "SmartReconcile.DemoMode";
+    public const string TenantItemKey = "SmartReconcile.Tenant";
+    public const string ConnectionItemKey = "SmartReconcile.Connection";
 
     public static ShopifySession? GetSession(HttpContext context)
         => context.Items.TryGetValue(SessionItemKey, out var value)
@@ -65,4 +72,10 @@ public static class ShopifyAuthenticationContext
 
     public static bool IsDemoMode(HttpContext context)
         => context.Items.ContainsKey(DemoModeItemKey);
+
+    public static Tenant? GetTenant(HttpContext context)
+        => context.Items.TryGetValue(TenantItemKey, out var value) ? value as Tenant : null;
+
+    public static IntegrationConnection? GetConnection(HttpContext context)
+        => context.Items.TryGetValue(ConnectionItemKey, out var value) ? value as IntegrationConnection : null;
 }
