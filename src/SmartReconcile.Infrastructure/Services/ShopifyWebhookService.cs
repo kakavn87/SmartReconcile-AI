@@ -190,7 +190,8 @@ public sealed class ShopifyWebhookService(
                         (x.EventType == "orders/create" ||
                          x.EventType == "orders/updated" ||
                          x.EventType == "orders/paid" ||
-                         x.EventType == "orders/cancelled"))
+                         x.EventType == "orders/cancelled" ||
+                         x.EventType == "orders/delete"))
             .ToListAsync(cancellationToken);
 
         var orderNumbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
