@@ -50,11 +50,8 @@ public sealed class ShopifyTenantResolutionService(
         // the same slug means another connection already claimed this shop.
         if (await tenants.ExistsBySlugAsync(tenantSlug, cancellationToken))
         {
-            var existingTenant = await FindTenantBySlugAsync(tenantSlug, cancellationToken);
-            if (existingTenant is null)
-                throw new InvalidOperationException("Shopify tenant slug exists but the tenant could not be resolved.");
-
-            tenant = existingTenant;
+            tenant = await tenants.GetBySlugAsync(tenantSlug, cancellationToken)
+                ?? throw new InvalidOperationException("Shopify tenant slug exists but the tenant could not be resolved.");
         }
         else
         {
@@ -82,21 +79,6 @@ public sealed class ShopifyTenantResolutionService(
 
         await connections.AddAsync(connection, cancellationToken);
         return new ShopifyTenantResolution(tenant, connection);
-    }
-
-    private async Task<Tenant?> FindTenantBySlugAsync(
-        string slug,
-        CancellationToken cancellationToken)
-    {
-        // The repository contract intentionally stays small. Resolve the existing
-        // tenant through the integration connection that owns this Shopify domain.
-        var connection = await connections.GetShopifyByDomainAsync(
-            slug + ".myshopify.com",
-            cancellationToken);
-
-        return connection is null
-            ? null
-            : await tenants.GetByIdAsync(connection.TenantId, cancellationToken);
     }
 
     internal static string NormalizeShopDomain(string shopDomain)
