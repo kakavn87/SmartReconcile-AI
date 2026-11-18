@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SmartReconcile.API.Authentication;
 using SmartReconcile.Application.Abstractions;
 using SmartReconcile.Application.DTOs;
 
@@ -6,7 +7,9 @@ namespace SmartReconcile.API.Controllers;
 
 [ApiController]
 [Route("api/v1/integrations")]
-public sealed class IntegrationsController(IIntegrationService service) : ControllerBase
+public sealed class IntegrationsController(
+    IIntegrationService service,
+    ITenantRepository tenants) : ControllerBase
 {
     [HttpPost("tenants")]
     public async Task<ActionResult<TenantDto>> CreateTenant(CreateTenantRequest request, CancellationToken ct)
@@ -34,6 +37,23 @@ public sealed class IntegrationsController(IIntegrationService service) : Contro
         {
             return NotFound(new { message = ex.Message });
         }
+    }
+
+    [HttpGet("connections")]
+    public async Task<ActionResult<IReadOnlyList<IntegrationConnectionDto>>> GetCurrentTenantConnections(
+        CancellationToken ct)
+    {
+        var tenant = ShopifyAuthenticationContext.GetTenant(HttpContext);
+
+        if (tenant is null && ShopifyAuthenticationContext.IsDemoMode(HttpContext))
+        {
+            tenant = await tenants.GetBySlugAsync("smartreconcile-demo", ct);
+        }
+
+        if (tenant is null || !tenant.IsActive)
+            return Unauthorized();
+
+        return Ok(await service.GetConnectionsAsync(tenant.Id, ct));
     }
 
     [HttpGet("tenants/{tenantId:guid}/connections")]
