@@ -8,5 +8,5 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 ENV ASPNETCORE_ENVIRONMENT=Production
-EXPOSE 8080
+EXPOSE 10000
 ENTRYPOINT ["dotnet", "SmartReconcile.API.dll"]
