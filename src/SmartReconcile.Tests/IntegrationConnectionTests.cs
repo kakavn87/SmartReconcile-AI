@@ -46,7 +46,6 @@ public sealed class IntegrationConnectionTests
         Assert.Equal(connection.LastWebhookAtUtc, connection.LastSeenAtUtc);
         Assert.Equal(ConnectionStatus.Connected, connection.Status);
     }
-}
 
     [Theory]
     [InlineData("https://smartreconcile-demo.myshopify.com/", "smartreconcile-demo.myshopify.com", "smartreconcile-demo")]
