@@ -20,7 +20,7 @@ export const CaseDetailStore = signalStore(
   })),
   withMethods((store, api=inject(ApiService)) => ({
     load:rxMethod<string>(pipe(
-      tap(() => patchState(store,{loading:true,error:null})),
+      tap(() => patchState(store,{data:null,loading:true,error:null})),
       switchMap(id => api.financialCase(id).pipe(
         tapResponse({ next:data => patchState(store,{data,loading:false}), error:() => patchState(store,{loading:false,error:'Der Finanzfall konnte nicht geladen werden.'}) })
       ))

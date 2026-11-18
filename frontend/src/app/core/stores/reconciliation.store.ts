@@ -11,8 +11,9 @@ export const ReconciliationStore=signalStore(
   {providedIn:'root'},
   withState<State>({result:null,running:false,error:null}),
   withMethods((store,api=inject(ApiService))=>({
+    reset:()=>patchState(store,{result:null,running:false,error:null}),
     run:rxMethod<void>(pipe(
-      tap(()=>patchState(store,{running:true,error:null})),
+      tap(()=>patchState(store,{result:null,running:true,error:null})),
       switchMap(()=>api.reconciliation().pipe(tapResponse({
         next:result=>patchState(store,{result,running:false}),
         error:()=>patchState(store,{running:false,error:'Der Abgleich konnte nicht durchgeführt werden.'})

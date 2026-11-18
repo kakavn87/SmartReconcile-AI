@@ -17,7 +17,7 @@ import { ChartOfAccounts, UpdateAccountingSettingsRequest } from '../../core/mod
           <p class="mt-1 text-sm text-slate-500">Buchhaltung, Kontenrahmen und DATEV-Export für dieses Unternehmen.</p>
         </div>
         @if (store.data(); as data) {
-          <div class="text-xs font-semibold text-slate-400">Zuletzt aktualisiert {{data.updatedAtUtc | date:'dd.MM.yyyy HH:mm':'':'de-DE'}}</div>
+          <div class="text-xs font-semibold text-slate-400">Zuletzt aktualisiert {{data.updatedAtUtc | date:'dd.MM.yyyy HH:mm':'Europe/Berlin':'de-DE'}}</div>
         }
       </div>
     </div>

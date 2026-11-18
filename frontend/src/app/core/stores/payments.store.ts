@@ -12,7 +12,7 @@ export const PaymentsStore=signalStore(
   withState<State>({items:[],loading:false,error:null}),
   withMethods((store,api=inject(ApiService))=>({
     load:rxMethod<void>(pipe(
-      tap(()=>patchState(store,{loading:true,error:null})),
+      tap(()=>patchState(store,{items:[],loading:true,error:null})),
       switchMap(()=>api.payments().pipe(tapResponse({
         next:items=>patchState(store,{items,loading:false}),
         error:()=>patchState(store,{loading:false,error:'Zahlungen konnten nicht geladen werden.'})
