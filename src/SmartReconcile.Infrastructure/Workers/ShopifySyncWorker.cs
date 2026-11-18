@@ -75,9 +75,9 @@ public sealed class ShopifySyncWorker(
                 logger.LogInformation(
                     "Scheduled Shopify sync completed for {ConnectionId}: imported={Imported}, updated={Updated}, payments={Payments}.",
                     connection.Id,
-                    result.ImportedOrders,
-                    result.UpdatedOrders,
-                    result.ImportedPayments);
+                    result.OrdersImported,
+                    result.SkippedOrders,
+                    result.PaymentsImported);
             }
             catch (Exception ex)
             {
