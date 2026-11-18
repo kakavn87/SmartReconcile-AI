@@ -32,15 +32,15 @@ public sealed class ShopifyTenantResolutionService(
 
         if (existingConnection is not null)
         {
-            var tenant = await tenants.GetByIdAsync(existingConnection.TenantId, cancellationToken)
+            var existingTenant = await tenants.GetByIdAsync(existingConnection.TenantId, cancellationToken)
                 ?? throw new InvalidOperationException("The tenant for the Shopify connection no longer exists.");
 
-            if (!tenant.IsActive)
+            if (!existingTenant.IsActive)
                 throw new UnauthorizedAccessException("The Shopify tenant is inactive.");
 
             existingConnection.Touch();
             await connections.SaveAsync(cancellationToken);
-            return new ShopifyTenantResolution(tenant, existingConnection);
+            return new ShopifyTenantResolution(existingTenant, existingConnection);
         }
 
         var tenantSlug = ToTenantSlug(shopDomain);
