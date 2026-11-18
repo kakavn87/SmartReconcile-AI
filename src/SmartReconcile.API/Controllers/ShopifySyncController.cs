@@ -7,9 +7,7 @@ namespace SmartReconcile.API.Controllers;
 [ApiController]
 [Route("api/integrations/shopify")]
 public sealed class ShopifySyncController(
-    IShopifySyncService syncService,
-    IShopifyOAuthService oauth,
-    ISecretProtector secretProtector) : ControllerBase
+    IShopifySyncService syncService) : ControllerBase
 {
     [HttpPost("{connectionId:guid}/sync")]
     public async Task<IActionResult> Sync(Guid connectionId, CancellationToken cancellationToken)
@@ -21,16 +19,6 @@ public sealed class ShopifySyncController(
 
         try
         {
-            if (!string.IsNullOrWhiteSpace(currentConnection.ShopDomain) &&
-                !string.IsNullOrWhiteSpace(currentConnection.EncryptedAccessToken))
-            {
-                var accessToken = secretProtector.Unprotect(currentConnection.EncryptedAccessToken);
-                await oauth.RegisterWebhooksAsync(
-                    currentConnection.ShopDomain,
-                    accessToken,
-                    cancellationToken);
-            }
-
             var result = await syncService.SyncAsync(connectionId, cancellationToken);
             return Ok(result);
         }
