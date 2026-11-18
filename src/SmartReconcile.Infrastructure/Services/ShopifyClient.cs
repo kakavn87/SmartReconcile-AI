@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -189,12 +190,18 @@ public sealed class ShopifyClient(
         [property: System.Text.Json.Serialization.JsonPropertyName("endCursor")] string? EndCursor);
 
     private static decimal ParseDecimal(string? value)
-        => decimal.TryParse(
-            value,
-            System.Globalization.NumberStyles.Any,
-            System.Globalization.CultureInfo.InvariantCulture,
-            out var parsed)
-            ? parsed
-            : 0m;
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return 0m;
+
+        if (decimal.TryParse(
+                value,
+                NumberStyles.Any,
+                CultureInfo.InvariantCulture,
+                out var parsed))
+            return parsed;
+
+        throw new FormatException($"Shopify amount '{value}' is not a valid invariant decimal.");
+    }
     private sealed record CustomerNode(string? DisplayName, string? Email);
 }
