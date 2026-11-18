@@ -5,7 +5,7 @@ using SmartReconcile.Infrastructure.Persistence;
 using SmartReconcile.API.Integrations;
 
 var builder = WebApplication.CreateBuilder(args);
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 builder.Services.AddControllers();
@@ -20,8 +20,19 @@ builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => poli
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+app.UseSwagger();
+app.UseSwaggerUI();
+app.UseCors("Frontend");
+app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "SmartReconcile.API", utc = DateTime.UtcNow }));
+app.MapControllers();
+
+// Start listening before database initialization so Render can detect the port.
+// Database/schema initialization is intentionally deferred until the HTTP server is up.
+var runTask = app.RunAsync();
+
+try
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<SmartReconcileDbContext>();
 
     // The demo currently has no EF migration files.
@@ -40,13 +51,13 @@ using (var scope = app.Services.CreateScope())
     await db.Database.EnsureCreatedAsync();
     await IntegrationSchemaInitializer.EnsureCreatedAsync(db);
 }
+catch (Exception ex)
+{
+    Console.Error.WriteLine($"Database initialization failed: {ex}");
+    await app.StopAsync();
+    throw;
+}
 
-app.UseSwagger();
-app.UseSwaggerUI();
-app.UseCors("Frontend");
-app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "SmartReconcile.API", utc = DateTime.UtcNow }));
-app.MapControllers();
-
-await app.RunAsync();
+await runTask;
 
 public partial class Program { }
