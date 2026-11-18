@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using SmartReconcile.API.Authentication;
 using SmartReconcile.Application.Abstractions;
 using SmartReconcile.Application.DTOs;
@@ -9,7 +10,8 @@ namespace SmartReconcile.API.Controllers;
 [Route("api/orders")]
 public sealed class OrdersController(
     IOrderService service,
-    IShopifySyncService shopifySync) : ControllerBase
+    IShopifySyncService shopifySync,
+    ILogger<OrdersController> logger) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<OrderDto>>> Get(CancellationToken ct)
@@ -21,10 +23,13 @@ public sealed class OrdersController(
             {
                 await shopifySync.SyncAsync(connection.Id, ct);
             }
-            catch
+            catch (Exception ex)
             {
-                // The orders list must remain available from PostgreSQL even when
-                // Shopify is temporarily unavailable.
+                logger.LogError(
+                    ex,
+                    "Shopify sync failed for connection {ConnectionId} and tenant {TenantId}",
+                    connection.Id,
+                    connection.TenantId);
             }
         }
 
