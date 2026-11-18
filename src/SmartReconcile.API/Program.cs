@@ -50,6 +50,7 @@ using (var scope = app.Services.CreateScope())
 
     await db.Database.EnsureCreatedAsync();
     await IntegrationSchemaInitializer.EnsureCreatedAsync(db);
+    await LegacyDemoDataCleanup.RemoveAsync(db, CancellationToken.None);
 }
 
 app.UseSwagger();
