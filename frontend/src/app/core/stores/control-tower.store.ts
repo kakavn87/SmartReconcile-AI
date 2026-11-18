@@ -19,7 +19,7 @@ export const ControlTowerStore = signalStore(
   withMethods((store, api=inject(ApiService)) => ({
     load:rxMethod<void>(
       pipe(
-        tap(() => patchState(store,{loading:true,error:null})),
+        tap(() => patchState(store,{data:null,loading:true,error:null})),
         switchMap(() => api.controlTower().pipe(
           tapResponse({
             next:data => patchState(store,{data,loading:false}),
