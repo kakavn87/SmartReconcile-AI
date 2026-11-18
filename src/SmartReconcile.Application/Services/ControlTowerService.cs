@@ -62,7 +62,7 @@ public sealed class ControlTowerService(
     public async Task<FinancialCaseDto?> GetCaseAsync(Guid tenantId, Guid id, CancellationToken cancellationToken)
     {
         var item = await cases.GetByIdAsync(id, tenantId, cancellationToken);
-        return item is null ? null : await MapCaseAsync(item, cancellationToken);
+        return item is null ? null : await MapCaseAsync(tenantId, item, cancellationToken);
     }
 
     public async Task<FinancialCaseDetailDto?> GetCaseDetailAsync(Guid tenantId, Guid id, CancellationToken cancellationToken)
@@ -146,7 +146,7 @@ public sealed class ControlTowerService(
             cancellationToken);
 
         await cases.SaveAsync(cancellationToken);
-        return await MapCaseAsync(item, cancellationToken);
+        return await MapCaseAsync(tenantId, item, cancellationToken);
     }
 
     public async Task<FinancialCaseDto?> AutoFixAsync(Guid tenantId, Guid id, CancellationToken cancellationToken)
@@ -262,7 +262,7 @@ public sealed class ControlTowerService(
             x.RelationType)).ToList();
     }
 
-    private async Task EnsureFinancialCasesAsync(CancellationToken cancellationToken)
+    private async Task EnsureFinancialCasesAsync(Guid tenantId, CancellationToken cancellationToken)
     {
         var discrepancyList = await discrepancies.GetAllAsync(tenantId, cancellationToken);
 
@@ -301,6 +301,7 @@ public sealed class ControlTowerService(
                 var order = await orders.GetByIdAsync(discrepancy.OrderId.Value, tenantId, cancellationToken);
                 if (order is not null)
                     links.Add(FinancialCaseLink.Create(
+                        tenantId,
                         financialCase.Id,
                         FinancialNodeType.Order,
                         order.Id,
@@ -358,6 +359,7 @@ public sealed class ControlTowerService(
             if (order is null) continue;
 
             if (!await graph.ExistsAsync(
+                tenantId,
                 FinancialNodeType.Order, order.Id,
                 FinancialNodeType.Payment, payment.Id,
                 FinancialRelationType.PaymentFor,
@@ -439,7 +441,7 @@ public sealed class ControlTowerService(
         IReadOnlyList<FinancialCaseLink> links,
         CancellationToken cancellationToken)
     {
-        var nodes = await BuildGraphNodesAsync(discrepancy, links, cancellationToken);
+        var nodes = await BuildGraphNodesAsync(tenantId, discrepancy, links, cancellationToken);
         return string.Join(
             " | ",
             nodes.Select(x =>
