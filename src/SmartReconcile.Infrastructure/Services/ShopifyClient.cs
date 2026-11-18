@@ -36,6 +36,7 @@ public sealed class ShopifyClient(
               id
               name
               createdAt
+              cancelledAt
               displayFinancialStatus
               totalPriceSet { shopMoney { amount currencyCode } }
               customer { displayName email }
@@ -145,7 +146,9 @@ public sealed class ShopifyClient(
             0m,
             x.CreatedAtUtc ?? DateTime.UtcNow)).ToList() ?? [];
 
-        var financialStatus = order.DisplayFinancialStatus ?? "PENDING";
+        var financialStatus = order.CancelledAtUtc is not null
+            ? "CANCELLED"
+            : order.DisplayFinancialStatus ?? "PENDING";
         return new ShopifyOrder(
             order.Id,
             order.Name ?? order.Id,
@@ -166,6 +169,7 @@ public sealed class ShopifyClient(
         string Id,
         string? Name,
         DateTime CreatedAtUtc,
+        DateTime? CancelledAtUtc,
         string? DisplayFinancialStatus,
         MoneySet? TotalPriceSet,
         CustomerNode? Customer,
