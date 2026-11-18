@@ -10,9 +10,9 @@ namespace SmartReconcile.Infrastructure.Services;
 
 public sealed class CsvExporter(SmartReconcileDbContext db) : ICsvExporter
 {
-    public async Task<byte[]> ExportDiscrepanciesAsync(CancellationToken ct)
+    public async Task<byte[]> ExportDiscrepanciesAsync(Guid tenantId, CancellationToken ct)
     {
-        var items = await db.Discrepancies.AsNoTracking().OrderByDescending(x => x.DetectedAtUtc).ToListAsync(ct);
+        var items = await db.Discrepancies.AsNoTracking().Where(x => x.TenantId == tenantId).OrderByDescending(x => x.DetectedAtUtc).ToListAsync(ct);
         using var stream = new MemoryStream();
         using var writer = new StreamWriter(stream, new UTF8Encoding(true), 1024, true);
         using var csv = new CsvWriter(writer, new CsvConfiguration(CultureInfo.GetCultureInfo("de-DE")));
