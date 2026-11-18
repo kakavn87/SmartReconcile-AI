@@ -16,7 +16,8 @@ public static class LegacyDemoDataCleanup
             ? []
             : await db.Payments
                 .Where(x => demoOrderIds.Contains(x.OrderId))
-                .Select(x => x.Id)
+                .Where(x => x.Id.HasValue)
+                .Select(x => x.Id!.Value)
                 .ToListAsync(cancellationToken);
 
         var demoInvoiceIds = await db.Invoices
