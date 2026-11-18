@@ -12,4 +12,4 @@ import { ReconciliationStore } from '../../core/stores/reconciliation.store';
     @if(store.error()){<div class="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{store.error()}}</div>}
   `
 })
-export class ReconciliationPage { readonly store=inject(ReconciliationStore); }
+export class ReconciliationPage { readonly store=inject(ReconciliationStore); constructor(){ this.store.reset(); } }
