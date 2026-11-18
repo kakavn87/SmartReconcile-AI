@@ -16,5 +16,6 @@
     <ProjectReference Include="..\SmartReconcile.Domain\SmartReconcile.Domain.csproj" />
     <ProjectReference Include="..\SmartReconcile.Application\SmartReconcile.Application.csproj" />
     <ProjectReference Include="..\SmartReconcile.Infrastructure\SmartReconcile.Infrastructure.csproj" />
+    <ProjectReference Include="..\SmartReconcile.API\SmartReconcile.API.csproj" />
   </ItemGroup>
 </Project>
