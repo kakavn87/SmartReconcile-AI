@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SmartReconcile.API.Authentication;
 using SmartReconcile.Application.Abstractions;
 
 namespace SmartReconcile.API.Controllers;
@@ -10,6 +11,11 @@ public sealed class ShopifySyncController(IShopifySyncService syncService) : Con
     [HttpPost("{connectionId:guid}/sync")]
     public async Task<IActionResult> Sync(Guid connectionId, CancellationToken cancellationToken)
     {
+        var currentConnection = ShopifyAuthenticationContext.GetConnection(HttpContext);
+
+        if (currentConnection is null || currentConnection.Id != connectionId)
+            return Unauthorized(new { message = "Die Shopify-Verbindung gehört nicht zum aktuell authentifizierten Shop." });
+
         try
         {
             var result = await syncService.SyncAsync(connectionId, cancellationToken);
