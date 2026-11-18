@@ -26,7 +26,9 @@ import { ShopifyBridgeService } from '../core/shopify/shopify-bridge.service';
         </header>
       }
 
-      <div class="mx-auto grid max-w-[1500px] grid-cols-1" [class.lg\:grid-cols-[245px_1fr]]="!shopify.isEmbedded()">
+      <div [class]="shopify.isEmbedded()
+        ? 'mx-auto grid max-w-[1500px] grid-cols-1'
+        : 'mx-auto grid max-w-[1500px] grid-cols-1 lg:grid-cols-[245px_1fr]'">
         @if (!shopify.isEmbedded()) {
           <aside class="border-r border-slate-200/80 bg-white/75 p-4 lg:min-h-[calc(100vh-4.5rem)]">
             <div class="mb-5 px-3 pt-2 text-[10px] font-extrabold uppercase tracking-[.14em] text-slate-400">Arbeitsbereich</div>
@@ -53,7 +55,9 @@ import { ShopifyBridgeService } from '../core/shopify/shopify-bridge.service';
           </aside>
         }
 
-        <main class="min-w-0 p-5 lg:p-8" [class.p-4]="shopify.isEmbedded()"><router-outlet /></main>
+        <main [class]="shopify.isEmbedded() ? 'min-w-0 p-4' : 'min-w-0 p-5 lg:p-8'">
+          <router-outlet />
+        </main>
       </div>
     </div>
   `,
