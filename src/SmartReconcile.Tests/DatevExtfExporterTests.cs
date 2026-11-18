@@ -29,7 +29,8 @@ public sealed class DatevExtfExporterTests
             119m,
             OrderStatus.Paid,
             new DateTime(2026, 11, 1, 10, 0, 0, DateTimeKind.Utc),
-            19m);
+            19m,
+            tenantId: tenant.Id);
 
         var payment = Payment.Create(
             tenant.Id,
@@ -82,7 +83,8 @@ public sealed class DatevExtfExporterTests
             107m,
             OrderStatus.Paid,
             new DateTime(2026, 11, 2, 10, 0, 0, DateTimeKind.Utc),
-            7m);
+            7m,
+            tenantId: tenant.Id);
 
         await db.Orders.AddAsync(order);
         await db.SaveChangesAsync();
@@ -117,7 +119,8 @@ public sealed class DatevExtfExporterTests
             "max@example.de",
             119m,
             OrderStatus.Paid,
-            new DateTime(2026, 11, 3, 10, 0, 0, DateTimeKind.Utc));
+            new DateTime(2026, 11, 3, 10, 0, 0, DateTimeKind.Utc),
+            tenantId: tenant.Id);
 
         var payment = Payment.Create(
             tenant.Id,
@@ -170,6 +173,7 @@ public sealed class DatevExtfExporterTests
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
             exporter.ExportAsync(
+                tenant.Id,
                 new DateOnly(2026, 11, 30),
                 new DateOnly(2026, 11, 1),
                 true,
