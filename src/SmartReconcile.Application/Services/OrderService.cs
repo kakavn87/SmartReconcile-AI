@@ -17,6 +17,13 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
         return Map(order);
     }
 
+    public async Task<OrderDto> CreateAsync(CreateOrderRequest request, Guid tenantId, CancellationToken cancellationToken)
+    {
+        var order = Order.Create(request.OrderNumber, request.CustomerName, request.CustomerEmail, request.TotalAmount, request.Status, request.CreatedAtUtc ?? DateTime.UtcNow, tenantId: tenantId);
+        await repository.AddAsync(order, cancellationToken);
+        return Map(order);
+    }
+
     private static OrderDto Map(Order x) => new(
         x.Id,
         x.OrderNumber,
