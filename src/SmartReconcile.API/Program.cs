@@ -3,6 +3,7 @@ using SmartReconcile.Application;
 using SmartReconcile.Infrastructure;
 using SmartReconcile.Infrastructure.Persistence;
 using SmartReconcile.Infrastructure.Services;
+using SmartReconcile.API.Authentication;
 using SmartReconcile.API.Integrations;
 using SmartReconcile.Application.Abstractions;
 
@@ -16,12 +17,14 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.Configure<ShopifyOptions>(builder.Configuration.GetSection("Shopify"));
+builder.Services.Configure<ShopifyAuthenticationOptions>(builder.Configuration.GetSection("ShopifyAuthentication"));
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<ShopifyOAuthStateStore>();
 builder.Services.AddScoped<IShopifyOAuthService, ShopifyOAuthService>();
 builder.Services.AddScoped<IShopifyWebhookService, ShopifyWebhookService>();
 builder.Services.AddScoped<IShopifyClient, ShopifyClient>();
 builder.Services.AddScoped<IShopifySyncService, ShopifySyncService>();
+builder.Services.AddScoped<IShopifyAuthenticationService, ShopifyAuthenticationService>();
 
 var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["http://localhost:4200"];
 builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod()));
@@ -52,6 +55,7 @@ using (var scope = app.Services.CreateScope())
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors("Frontend");
+app.UseMiddleware<ShopifyAuthenticationMiddleware>();
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "SmartReconcile.API", utc = DateTime.UtcNow }));
 app.MapControllers();
 
