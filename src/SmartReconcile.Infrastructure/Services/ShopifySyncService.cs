@@ -48,7 +48,8 @@ public sealed class ShopifySyncService(
                 source.CustomerEmail ?? string.Empty,
                 source.TotalAmount,
                 status,
-                source.CreatedAtUtc);
+                source.CreatedAtUtc,
+                currency: source.Currency);
 
             await db.Orders.AddAsync(order, cancellationToken);
             importedOrders++;
