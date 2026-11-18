@@ -149,6 +149,7 @@ public sealed class DatevExtfExporterTests
         var exporter = new DatevExtfExporter(db, new TestAccountingSettingsService(settings));
 
         var bytes = await exporter.ExportAsync(
+            tenant.Id,
             new DateOnly(2026, 11, 3),
             new DateOnly(2026, 11, 3),
             true,
