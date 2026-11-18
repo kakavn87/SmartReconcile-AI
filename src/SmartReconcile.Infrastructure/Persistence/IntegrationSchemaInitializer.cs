@@ -16,6 +16,16 @@ public static class IntegrationSchemaInitializer
             );
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_Tenants_Slug" ON "Tenants" ("Slug");
 
+            INSERT INTO "Tenants" ("Id", "Name", "Slug", "IsActive", "CreatedAtUtc")
+            VALUES (
+                '00000000-0000-0000-0000-000000000001',
+                'SmartReconcile Demo',
+                'smartreconcile-demo',
+                TRUE,
+                NOW()
+            )
+            ON CONFLICT ("Id") DO NOTHING;
+
             ALTER TABLE "Orders" ADD COLUMN IF NOT EXISTS "TaxRate" numeric(5,2) NOT NULL DEFAULT 19;
             ALTER TABLE "Payments" ADD COLUMN IF NOT EXISTS "FeeAmount" numeric(18,2) NOT NULL DEFAULT 0;
 
