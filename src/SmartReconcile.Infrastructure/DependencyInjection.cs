@@ -29,7 +29,6 @@ public static class DependencyInjection
         services.AddScoped<IFinancialGraphRepository, FinancialGraphRepository>();
         services.AddScoped<IAccountingSettingsRepository, AccountingSettingsRepository>();
         services.AddScoped<IDatevExtfExporter, DatevExtfExporter>();
-        services.AddScoped<ISeedService, SeedService>();
         services.AddScoped<ICsvExporter, CsvExporter>();
         services.AddHttpClient<IAiAnalysisService, AiAnalysisService>();
         services.AddHostedService<ShopifyWebhookWorker>();
