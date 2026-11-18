@@ -108,11 +108,11 @@ public sealed class ShopifyWebhookService(
             case "orders/create":
             case "orders/updated":
             case "orders/paid":
-                await ImportOrderAsync(webhook.PayloadJson, cancellationToken);
+                await ImportOrderAsync(webhook.ConnectionId, webhook.PayloadJson, cancellationToken);
                 break;
 
             case "orders/cancelled":
-                await CancelOrderAsync(webhook.PayloadJson, cancellationToken);
+                await CancelOrderAsync(webhook.ConnectionId, webhook.PayloadJson, cancellationToken);
                 break;
 
             case "orders/delete":
@@ -169,8 +169,18 @@ public sealed class ShopifyWebhookService(
         if (string.IsNullOrWhiteSpace(email))
             return;
 
+        var connectionId = await db.WebhookEvents
+            .Where(x => x.Id == webhook.Id)
+            .Select(x => x.ConnectionId)
+            .FirstAsync(cancellationToken);
+
+        var tenantId = await db.IntegrationConnections
+            .Where(x => x.Id == connectionId)
+            .Select(x => x.TenantId)
+            .FirstAsync(cancellationToken);
+
         var orders = await db.Orders
-            .Where(x => x.CustomerEmail == email)
+            .Where(x => x.TenantId == tenantId && x.CustomerEmail == email)
             .ToListAsync(cancellationToken);
 
         foreach (var order in orders)
@@ -217,7 +227,7 @@ public sealed class ShopifyWebhookService(
         if (orderNumbers.Count > 0)
         {
             var orders = await db.Orders
-                .Where(x => orderNumbers.Contains(x.OrderNumber))
+                .Where(x => x.TenantId == connection.TenantId && orderNumbers.Contains(x.OrderNumber))
                 .ToListAsync(cancellationToken);
 
             foreach (var order in orders)
@@ -240,7 +250,7 @@ public sealed class ShopifyWebhookService(
         connection.ClearShopifyCredentials();
     }
 
-    private async Task ImportOrderAsync(string rawBody, CancellationToken cancellationToken)
+    private async Task ImportOrderAsync(Guid connectionId, string rawBody, CancellationToken cancellationToken)
     {
         using var document = JsonDocument.Parse(rawBody);
         var root = document.RootElement;
@@ -252,7 +262,17 @@ public sealed class ShopifyWebhookService(
             ? name.GetString() ?? externalId
             : externalId;
         var orderNumber = $"SHOPIFY-{orderName}";
-        var order = await db.Orders.FirstOrDefaultAsync(x => x.OrderNumber == orderNumber, cancellationToken);
+        var tenantId = await db.IntegrationConnections
+            .Where(x => x.Id == connectionId)
+            .Select(x => x.TenantId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (tenantId == Guid.Empty)
+            return;
+
+        var order = await db.Orders.FirstOrDefaultAsync(
+            x => x.TenantId == tenantId && x.OrderNumber == orderNumber,
+            cancellationToken);
         var amount = ParseDecimal(root, "current_total_price", "total_price");
         var email = root.TryGetProperty("email", out var emailProperty)
             ? emailProperty.GetString() ?? string.Empty
@@ -274,7 +294,15 @@ public sealed class ShopifyWebhookService(
 
         if (order is null)
         {
-            var status = financialStatus == "PAID" ? OrderStatus.Paid : OrderStatus.Pending;
+            var status = financialStatus switch
+            {
+                "PAID" => OrderStatus.Paid,
+                "PARTIALLY_PAID" => OrderStatus.Paid,
+                "AUTHORIZED" => OrderStatus.Pending,
+                "REFUNDED" => OrderStatus.Refunded,
+                "CANCELLED" => OrderStatus.Cancelled,
+                _ => OrderStatus.Pending
+            };
             var createdAt = root.TryGetProperty("created_at", out var created) &&
                             DateTime.TryParse(created.GetString(), out var parsedCreated)
                 ? parsedCreated.ToUniversalTime()
@@ -284,7 +312,7 @@ public sealed class ShopifyWebhookService(
                 ? currencyProperty.GetString() ?? "EUR"
                 : "EUR";
 
-            order = Order.Create(orderNumber, customerName, email, amount, status, createdAt, currency: currency);
+            order = Order.Create(orderNumber, customerName, email, amount, status, createdAt, currency: currency, tenantId: tenantId);
             await db.Orders.AddAsync(order, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
         }
@@ -353,7 +381,7 @@ public sealed class ShopifyWebhookService(
         }
     }
 
-    private async Task CancelOrderAsync(string rawBody, CancellationToken cancellationToken)
+    private async Task CancelOrderAsync(Guid connectionId, string rawBody, CancellationToken cancellationToken)
     {
         using var document = JsonDocument.Parse(rawBody);
         var root = document.RootElement;
@@ -367,11 +395,24 @@ public sealed class ShopifyWebhookService(
             : externalId;
         var orderNumber = $"SHOPIFY-{orderName}";
 
-        var order = await db.Orders.FirstOrDefaultAsync(x => x.OrderNumber == orderNumber, cancellationToken);
+        var tenantId = await db.IntegrationConnections
+            .Where(x => x.Id == connectionId)
+            .Select(x => x.TenantId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (tenantId == Guid.Empty)
+            return;
+
+        var order = await db.Orders.FirstOrDefaultAsync(
+            x => x.TenantId == tenantId && x.OrderNumber == orderNumber,
+            cancellationToken);
+
         if (order is null)
         {
-            await ImportOrderAsync(rawBody, cancellationToken);
-            order = await db.Orders.FirstOrDefaultAsync(x => x.OrderNumber == orderNumber, cancellationToken);
+            await ImportOrderAsync(connectionId, rawBody, cancellationToken);
+            order = await db.Orders.FirstOrDefaultAsync(
+                x => x.TenantId == tenantId && x.OrderNumber == orderNumber,
+                cancellationToken);
         }
 
         order?.ChangeStatus(OrderStatus.Cancelled);
@@ -530,9 +571,16 @@ public sealed class ShopifyWebhookService(
                     ? name.GetString() ?? shopifyOrderId
                     : shopifyOrderId;
 
-                return await db.Orders.FirstOrDefaultAsync(
-                    x => x.OrderNumber == $"SHOPIFY-{orderName}",
-                    cancellationToken);
+                var tenantId = await db.IntegrationConnections
+                    .Where(x => x.Id == connectionId)
+                    .Select(x => x.TenantId)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                return tenantId == Guid.Empty
+                    ? null
+                    : await db.Orders.FirstOrDefaultAsync(
+                        x => x.TenantId == tenantId && x.OrderNumber == $"SHOPIFY-{orderName}",
+                        cancellationToken);
             }
             catch (JsonException)
             {
