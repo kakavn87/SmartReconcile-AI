@@ -1,12 +1,22 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using SmartReconcile.API.Authentication;
 
 namespace SmartReconcile.API.Controllers;
 
 [ApiController]
 [Route("api/auth/shopify")]
-public sealed class ShopifyAuthenticationController : ControllerBase
+public sealed class ShopifyAuthenticationController(IOptions<ShopifyOptions> options) : ControllerBase
 {
+    [HttpGet("config")]
+    public IActionResult Config()
+    {
+        return Ok(new
+        {
+            clientId = options.Value.ClientId
+        });
+    }
+
     [HttpGet("session")]
     public IActionResult Session()
     {
