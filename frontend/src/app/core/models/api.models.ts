@@ -164,6 +164,17 @@ export interface IntegrationConnection {
   apiKey:string|null;
 }
 
+export interface ShopifySessionInfo {
+  mode:string;
+  authenticated:boolean;
+  shopDomain:string;
+  userId:string;
+  sessionId:string;
+  expiresAtUtc:string;
+  tenantId:string|null;
+  connectionId:string|null;
+}
+
 export interface ShopifySyncResult {
   connectionId:string;
   ordersImported:number;
