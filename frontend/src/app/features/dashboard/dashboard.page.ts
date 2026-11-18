@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ControlTowerStore } from '../../core/stores/control-tower.store';
+import { OrdersStore } from '../../core/stores/orders.store';
 
 @Component({
   standalone:true,
@@ -54,4 +55,12 @@ import { ControlTowerStore } from '../../core/stores/control-tower.store';
     } @else { <div class="app-card p-8 text-center text-sm text-slate-500">Keine Finanzdaten verfügbar.</div> }
   `
 })
-export class DashboardPage { readonly store=inject(ControlTowerStore); constructor(){this.store.load();} }
+export class DashboardPage {
+  readonly store=inject(ControlTowerStore);
+  readonly ordersStore=inject(OrdersStore);
+
+  constructor(){
+    this.store.load();
+    this.ordersStore.load();
+  }
+}
