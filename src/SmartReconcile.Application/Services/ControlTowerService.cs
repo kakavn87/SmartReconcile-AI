@@ -17,14 +17,14 @@ public sealed class ControlTowerService(
     IIntegrationConnectionRepository connections,
     IAiAnalysisService aiAnalysis) : IControlTowerService
 {
-    public async Task<ControlTowerDto> GetOverviewAsync(CancellationToken cancellationToken)
+    public async Task<ControlTowerDto> GetOverviewAsync(Guid tenantId, CancellationToken cancellationToken)
     {
-        await EnsureFinancialCasesAsync(cancellationToken);
+        await EnsureFinancialCasesAsync(tenantId, cancellationToken);
 
-        var orderList = await orders.GetAllAsync(cancellationToken);
-        var paymentList = await payments.GetAllAsync(cancellationToken);
-        var caseList = await cases.GetAllAsync(cancellationToken);
-        var connectionList = await connections.GetAllAsync(cancellationToken);
+        var orderList = await orders.GetAllAsync(tenantId, cancellationToken);
+        var paymentList = await payments.GetAllAsync(tenantId, cancellationToken);
+        var caseList = await cases.GetAllAsync(tenantId, cancellationToken);
+        var connectionList = await connections.GetForTenantAsync(tenantId, cancellationToken);
 
         var revenue = decimal.Round(orderList.Sum(x => x.TotalAmount), 2);
         var collected = decimal.Round(paymentList
@@ -59,22 +59,22 @@ public sealed class ControlTowerService(
             caseDtos);
     }
 
-    public async Task<FinancialCaseDto?> GetCaseAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<FinancialCaseDto?> GetCaseAsync(Guid tenantId, Guid id, CancellationToken cancellationToken)
     {
-        var item = await cases.GetByIdAsync(id, cancellationToken);
+        var item = await cases.GetByIdAsync(id, tenantId, cancellationToken);
         return item is null ? null : await MapCaseAsync(item, cancellationToken);
     }
 
-    public async Task<FinancialCaseDetailDto?> GetCaseDetailAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<FinancialCaseDetailDto?> GetCaseDetailAsync(Guid tenantId, Guid id, CancellationToken cancellationToken)
     {
-        var item = await cases.GetByIdAsync(id, cancellationToken);
+        var item = await cases.GetByIdAsync(id, tenantId, cancellationToken);
         if (item is null)
             return null;
 
-        var links = await caseLinks.GetForCaseAsync(item.Id, cancellationToken);
-        var timeline = await auditEvents.GetForCaseAsync(item.Id, cancellationToken);
+        var links = await caseLinks.GetForCaseAsync(tenantId, item.Id, cancellationToken);
+        var timeline = await auditEvents.GetForCaseAsync(tenantId, item.Id, cancellationToken);
         var discrepancy = item.DiscrepancyId.HasValue
-            ? await discrepancies.GetByIdAsync(item.DiscrepancyId.Value, cancellationToken)
+            ? await discrepancies.GetByIdAsync(item.DiscrepancyId.Value, tenantId, cancellationToken)
             : null;
 
         var graphNodes = await BuildGraphNodesAsync(discrepancy, links, cancellationToken);
@@ -113,15 +113,15 @@ public sealed class ControlTowerService(
             rootCauseAnalysis);
     }
 
-    public async Task<FinancialCaseDto?> StartInvestigationAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<FinancialCaseDto?> StartInvestigationAsync(Guid tenantId, Guid id, CancellationToken cancellationToken)
     {
-        var item = await cases.GetByIdAsync(id, cancellationToken);
+        var item = await cases.GetByIdAsync(id, tenantId, cancellationToken);
         if (item is null)
             return null;
 
-        var links = await caseLinks.GetForCaseAsync(item.Id, cancellationToken);
+        var links = await caseLinks.GetForCaseAsync(tenantId, item.Id, cancellationToken);
         var discrepancy = item.DiscrepancyId.HasValue
-            ? await discrepancies.GetByIdAsync(item.DiscrepancyId.Value, cancellationToken)
+            ? await discrepancies.GetByIdAsync(item.DiscrepancyId.Value, tenantId, cancellationToken)
             : null;
 
         item.StartInvestigation();
@@ -138,6 +138,7 @@ public sealed class ControlTowerService(
 
         await auditEvents.AddAsync(
             CaseAuditEvent.Create(
+                tenantId,
                 item.Id,
                 CaseAuditEventType.Investigated,
                 $"KI-Ursachenanalyse durchgeführt{(aiResult.IsFallback ? " (Fallback)" : string.Empty)}. Ursache: {aiResult.Analysis} Empfehlung: {aiResult.RecommendedAction}",
@@ -148,14 +149,14 @@ public sealed class ControlTowerService(
         return await MapCaseAsync(item, cancellationToken);
     }
 
-    public async Task<FinancialCaseDto?> AutoFixAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<FinancialCaseDto?> AutoFixAsync(Guid tenantId, Guid id, CancellationToken cancellationToken)
     {
-        var item = await cases.GetByIdAsync(id, cancellationToken);
+        var item = await cases.GetByIdAsync(id, tenantId, cancellationToken);
         if (item is null)
             return null;
 
         var discrepancy = item.DiscrepancyId.HasValue
-            ? await discrepancies.GetByIdAsync(item.DiscrepancyId.Value, cancellationToken)
+            ? await discrepancies.GetByIdAsync(item.DiscrepancyId.Value, tenantId, cancellationToken)
             : null;
 
         var description = "Automatische Korrekturmaßnahme wurde ausgelöst.";
@@ -165,8 +166,8 @@ public sealed class ControlTowerService(
             discrepancy.OrderId.HasValue &&
             discrepancy.PaymentId.HasValue)
         {
-            var payment = await payments.GetByIdAsync(discrepancy.PaymentId.Value, cancellationToken);
-            var order = await orders.GetByIdAsync(discrepancy.OrderId.Value, cancellationToken);
+            var payment = await payments.GetByIdAsync(discrepancy.PaymentId.Value, tenantId, cancellationToken);
+            var order = await orders.GetByIdAsync(discrepancy.OrderId.Value, tenantId, cancellationToken);
 
             if (payment?.Status == PaymentStatus.Succeeded && order is not null)
             {
@@ -183,6 +184,7 @@ public sealed class ControlTowerService(
 
         await auditEvents.AddAsync(
             CaseAuditEvent.Create(
+                tenantId,
                 item.Id,
                 CaseAuditEventType.ActionExecuted,
                 description,
@@ -194,12 +196,13 @@ public sealed class ControlTowerService(
     }
 
     public async Task<FinancialCaseDto?> ResolveAsync(
+        Guid tenantId,
         Guid id,
         string? rootCause,
         string? note,
         CancellationToken cancellationToken)
     {
-        var item = await cases.GetByIdAsync(id, cancellationToken);
+        var item = await cases.GetByIdAsync(id, tenantId, cancellationToken);
         if (item is null)
             return null;
 
@@ -211,6 +214,7 @@ public sealed class ControlTowerService(
 
         await auditEvents.AddAsync(
             CaseAuditEvent.Create(
+                tenantId,
                 item.Id,
                 CaseAuditEventType.Resolved,
                 description,
@@ -221,9 +225,9 @@ public sealed class ControlTowerService(
         return await MapCaseAsync(item, cancellationToken);
     }
 
-    public async Task<FinancialCaseDto?> IgnoreAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<FinancialCaseDto?> IgnoreAsync(Guid tenantId, Guid id, CancellationToken cancellationToken)
     {
-        var item = await cases.GetByIdAsync(id, cancellationToken);
+        var item = await cases.GetByIdAsync(id, tenantId, cancellationToken);
         if (item is null)
             return null;
 
@@ -231,6 +235,7 @@ public sealed class ControlTowerService(
 
         await auditEvents.AddAsync(
             CaseAuditEvent.Create(
+                tenantId,
                 item.Id,
                 CaseAuditEventType.Ignored,
                 "Finanzfall wurde vom Benutzer ignoriert.",
@@ -242,11 +247,12 @@ public sealed class ControlTowerService(
     }
 
     public async Task<List<FinancialGraphRelationDto>> GetGraphAsync(
+        Guid tenantId,
         FinancialNodeType nodeType,
         Guid entityId,
         CancellationToken cancellationToken)
     {
-        var relations = await graph.GetForNodeAsync(nodeType, entityId, cancellationToken);
+        var relations = await graph.GetForNodeAsync(tenantId, nodeType, entityId, cancellationToken);
         return relations.Select(x => new FinancialGraphRelationDto(
             x.Id,
             x.FromNodeType,
@@ -258,17 +264,18 @@ public sealed class ControlTowerService(
 
     private async Task EnsureFinancialCasesAsync(CancellationToken cancellationToken)
     {
-        var discrepancyList = await discrepancies.GetAllAsync(cancellationToken);
+        var discrepancyList = await discrepancies.GetAllAsync(tenantId, cancellationToken);
 
         foreach (var discrepancy in discrepancyList)
         {
             if (discrepancy.Status is DiscrepancyStatus.Ignored or DiscrepancyStatus.Resolved)
                 continue;
 
-            if (await cases.ExistsOpenForDiscrepancyAsync(discrepancy.Id, cancellationToken))
+            if (await cases.ExistsOpenForDiscrepancyAsync(tenantId, discrepancy.Id, cancellationToken))
                 continue;
 
             var financialCase = FinancialCase.Create(
+                tenantId,
                 discrepancy.Id,
                 DetermineSeverity(discrepancy),
                 discrepancy.Title,
@@ -280,6 +287,7 @@ public sealed class ControlTowerService(
             var links = new List<FinancialCaseLink>
             {
                 FinancialCaseLink.Create(
+                    tenantId,
                     financialCase.Id,
                     FinancialNodeType.Discrepancy,
                     discrepancy.Id,
@@ -290,7 +298,7 @@ public sealed class ControlTowerService(
 
             if (discrepancy.OrderId.HasValue)
             {
-                var order = await orders.GetByIdAsync(discrepancy.OrderId.Value, cancellationToken);
+                var order = await orders.GetByIdAsync(discrepancy.OrderId.Value, tenantId, cancellationToken);
                 if (order is not null)
                     links.Add(FinancialCaseLink.Create(
                         financialCase.Id,
@@ -303,7 +311,7 @@ public sealed class ControlTowerService(
 
             if (discrepancy.PaymentId.HasValue)
             {
-                var payment = await payments.GetByIdAsync(discrepancy.PaymentId.Value, cancellationToken);
+                var payment = await payments.GetByIdAsync(discrepancy.PaymentId.Value, tenantId, cancellationToken);
                 if (payment is not null)
                     links.Add(FinancialCaseLink.Create(
                         financialCase.Id,
@@ -316,7 +324,7 @@ public sealed class ControlTowerService(
 
             if (discrepancy.InvoiceId.HasValue)
             {
-                var invoice = await invoices.GetByIdAsync(discrepancy.InvoiceId.Value, cancellationToken);
+                var invoice = await invoices.GetByIdAsync(discrepancy.InvoiceId.Value, tenantId, cancellationToken);
                 if (invoice is not null)
                     links.Add(FinancialCaseLink.Create(
                         financialCase.Id,
@@ -331,6 +339,7 @@ public sealed class ControlTowerService(
 
             await auditEvents.AddAsync(
                 CaseAuditEvent.Create(
+                    tenantId,
                     financialCase.Id,
                     CaseAuditEventType.Detected,
                     $"Finanzfall erkannt: {financialCase.Title}. Betroffener Betrag: {financialCase.AffectedAmount:0.00} EUR.",
@@ -340,8 +349,8 @@ public sealed class ControlTowerService(
 
         await cases.SaveAsync(cancellationToken);
 
-        var orderList = await orders.GetAllAsync(cancellationToken);
-        var paymentList = await payments.GetAllAsync(cancellationToken);
+        var orderList = await orders.GetAllAsync(tenantId, cancellationToken);
+        var paymentList = await payments.GetAllAsync(tenantId, cancellationToken);
 
         foreach (var payment in paymentList)
         {
@@ -356,6 +365,7 @@ public sealed class ControlTowerService(
             {
                 await graph.AddAsync(
                     FinancialGraphRelation.Create(
+                        tenantId,
                         FinancialNodeType.Order,
                         order.Id,
                         FinancialNodeType.Payment,
@@ -377,9 +387,9 @@ public sealed class ControlTowerService(
         var paymentId = discrepancy?.PaymentId ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Payment)?.EntityId;
         var invoiceId = discrepancy?.InvoiceId ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Invoice)?.EntityId;
 
-        var order = orderId.HasValue ? await orders.GetByIdAsync(orderId.Value, cancellationToken) : null;
-        var payment = paymentId.HasValue ? await payments.GetByIdAsync(paymentId.Value, cancellationToken) : null;
-        var invoice = invoiceId.HasValue ? await invoices.GetByIdAsync(invoiceId.Value, cancellationToken) : null;
+        var order = orderId.HasValue ? await orders.GetByIdAsync(orderId.Value, tenantId, cancellationToken) : null;
+        var payment = paymentId.HasValue ? await payments.GetByIdAsync(paymentId.Value, tenantId, cancellationToken) : null;
+        var invoice = invoiceId.HasValue ? await invoices.GetByIdAsync(invoiceId.Value, tenantId, cancellationToken) : null;
 
         return
         [
@@ -467,7 +477,7 @@ public sealed class ControlTowerService(
 
     private async Task<FinancialCaseDto> MapCaseAsync(FinancialCase item, CancellationToken cancellationToken)
     {
-        var links = await caseLinks.GetForCaseAsync(item.Id, cancellationToken);
+        var links = await caseLinks.GetForCaseAsync(tenantId, item.Id, cancellationToken);
         return new FinancialCaseDto(
             item.Id,
             item.DiscrepancyId,
