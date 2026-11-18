@@ -78,6 +78,7 @@ public sealed class ShopifyOAuthService(
             "ORDERS_UPDATED",
             "ORDERS_PAID",
             "ORDERS_CANCELLED",
+            "ORDERS_DELETE",
             "REFUNDS_CREATE",
             "APP_UNINSTALLED"
         };
