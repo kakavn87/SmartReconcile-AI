@@ -81,7 +81,7 @@ public sealed class ShopifyTenantResolutionService(
         return new ShopifyTenantResolution(tenant, connection);
     }
 
-    internal static string NormalizeShopDomain(string shopDomain)
+    public static string NormalizeShopDomain(string shopDomain)
     {
         var normalized = shopDomain.Trim().ToLowerInvariant();
 
@@ -99,7 +99,7 @@ public sealed class ShopifyTenantResolutionService(
         return normalized;
     }
 
-    internal static string ToTenantSlug(string shopDomain)
+    public static string ToTenantSlug(string shopDomain)
     {
         var normalized = NormalizeShopDomain(shopDomain);
         return normalized[..^".myshopify.com".Length];
