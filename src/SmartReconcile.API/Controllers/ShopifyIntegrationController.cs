@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 using SmartReconcile.API.Integrations;
 using SmartReconcile.Application.Abstractions;
 using SmartReconcile.Domain.Entities;
@@ -13,7 +14,9 @@ public sealed class ShopifyIntegrationController(
     ITenantRepository tenants,
     IIntegrationConnectionRepository connections,
     ISecretProtector secretProtector,
-    IOptions<ShopifyOptions> shopifyOptions) : ControllerBase
+    IOptions<ShopifyOptions> shopifyOptions,
+    IShopifySyncService shopifySync,
+    ILogger<ShopifyIntegrationController> logger) : ControllerBase
 {
     [HttpGet("install")]
     public IActionResult Install([FromQuery] string shop)
@@ -75,7 +78,8 @@ public sealed class ShopifyIntegrationController(
 
         var token = await oauth.ExchangeCodeAsync(normalizedShop, code, cancellationToken);
         await oauth.RegisterWebhooksAsync(normalizedShop, token.AccessToken, cancellationToken);
-        if (connection is null)
+        var isNewConnection = connection is null;
+        if (isNewConnection)
         {
             connection = IntegrationConnection.CreateShopify(
                 tenant.Id,
@@ -97,6 +101,23 @@ public sealed class ShopifyIntegrationController(
                 DateTime.UtcNow.AddSeconds(token.ExpiresInSeconds),
                 token.RefreshTokenExpiresInSeconds > 0 ? DateTime.UtcNow.AddSeconds(token.RefreshTokenExpiresInSeconds) : connection.RefreshTokenExpiresAtUtc);
             await connections.SaveAsync(cancellationToken);
+        }
+
+        if (isNewConnection && connection is not null)
+        {
+            try
+            {
+                await shopifySync.SyncAsync(connection.Id, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // The connection is already persisted; scheduled/manual sync can retry.
+                logger.LogError(
+                    ex,
+                    "Initial Shopify sync failed for connection {ConnectionId} and tenant {TenantId}.",
+                    connection.Id,
+                    connection.TenantId);
+            }
         }
 
         return Redirect($"{shopifyOptions.Value.FrontendUrl.TrimEnd('/')}/integrationen");

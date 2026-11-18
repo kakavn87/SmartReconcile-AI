@@ -9,30 +9,11 @@ namespace SmartReconcile.API.Controllers;
 [ApiController]
 [Route("api/orders")]
 public sealed class OrdersController(
-    IOrderService service,
-    IShopifySyncService shopifySync,
-    ILogger<OrdersController> logger) : ControllerBase
+    IOrderService service) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<OrderDto>>> Get(CancellationToken ct)
     {
-        var connection = ShopifyAuthenticationContext.GetConnection(HttpContext);
-        if (connection?.Provider == SmartReconcile.Domain.Enums.IntegrationProvider.Shopify)
-        {
-            try
-            {
-                await shopifySync.SyncAsync(connection.Id, ct);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(
-                    ex,
-                    "Shopify sync failed for connection {ConnectionId} and tenant {TenantId}",
-                    connection.Id,
-                    connection.TenantId);
-            }
-        }
-
         var tenant = ShopifyAuthenticationContext.GetTenant(HttpContext);
         return tenant is null
             ? Unauthorized()
