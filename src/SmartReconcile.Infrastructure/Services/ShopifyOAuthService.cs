@@ -36,15 +36,17 @@ public sealed class ShopifyOAuthService(
             throw new ArgumentException("Invalid Shopify shop domain.", nameof(shopDomain));
 
         using var client = httpClientFactory.CreateClient();
-        using var response = await client.PostAsJsonAsync(
+        using var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["client_id"] = options.ClientId,
+            ["client_secret"] = options.ClientSecret,
+            ["code"] = code,
+            ["expiring"] = "1"
+        });
+
+        using var response = await client.PostAsync(
             $"https://{shopDomain}/admin/oauth/access_token",
-            new
-            {
-                client_id = options.ClientId,
-                client_secret = options.ClientSecret,
-                code,
-                expiring = 1
-            },
+            content,
             cancellationToken);
 
         response.EnsureSuccessStatusCode();
