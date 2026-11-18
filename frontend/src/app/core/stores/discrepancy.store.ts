@@ -21,7 +21,7 @@ export const DiscrepancyStore = signalStore(
   })),
   withMethods((store, api=inject(ApiService)) => ({
     load:rxMethod<void>(pipe(
-      tap(() => patchState(store,{loading:true,error:null})),
+      tap(() => patchState(store,{items:[],loading:true,error:null})),
       switchMap(() => api.discrepancies().pipe(
         tapResponse({
           next:items => patchState(store,{items,loading:false}),
