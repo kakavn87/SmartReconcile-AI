@@ -32,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<ICsvExporter, CsvExporter>();
         services.AddHttpClient<IAiAnalysisService, AiAnalysisService>();
         services.AddHostedService<ShopifyWebhookWorker>();
+        services.AddHostedService<ShopifySyncWorker>();
         services.AddHostedService<ReconciliationWorker>();
         return services;
     }
