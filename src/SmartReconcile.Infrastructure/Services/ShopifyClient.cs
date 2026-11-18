@@ -167,22 +167,26 @@ public sealed class ShopifyClient(
     private sealed record GraphQlOrders(List<OrderNode>? Nodes, PageInfo PageInfo);
     private sealed record OrderNode(
         string Id,
-        string? Name,
-        DateTime CreatedAtUtc,
-        DateTime? CancelledAtUtc,
-        string? DisplayFinancialStatus,
-        MoneySet? TotalPriceSet,
-        CustomerNode? Customer,
-        List<TransactionNode>? Transactions);
+        [property: System.Text.Json.Serialization.JsonPropertyName("name")] string? Name,
+        [property: System.Text.Json.Serialization.JsonPropertyName("createdAt")] DateTime CreatedAtUtc,
+        [property: System.Text.Json.Serialization.JsonPropertyName("cancelledAt")] DateTime? CancelledAtUtc,
+        [property: System.Text.Json.Serialization.JsonPropertyName("displayFinancialStatus")] string? DisplayFinancialStatus,
+        [property: System.Text.Json.Serialization.JsonPropertyName("totalPriceSet")] MoneySet? TotalPriceSet,
+        [property: System.Text.Json.Serialization.JsonPropertyName("customer")] CustomerNode? Customer,
+        [property: System.Text.Json.Serialization.JsonPropertyName("transactions")] List<TransactionNode>? Transactions);
     private sealed record TransactionNode(
-        string Id,
-        MoneySet? AmountSet,
-        string? Status,
-        string? Kind,
-        DateTime? CreatedAtUtc);
-    private sealed record MoneySet(Money? ShopMoney);
-    private sealed record Money(string Amount, string CurrencyCode);
-    private sealed record PageInfo(bool HasNextPage, string? EndCursor);
+        [property: System.Text.Json.Serialization.JsonPropertyName("id")] string Id,
+        [property: System.Text.Json.Serialization.JsonPropertyName("amountSet")] MoneySet? AmountSet,
+        [property: System.Text.Json.Serialization.JsonPropertyName("status")] string? Status,
+        [property: System.Text.Json.Serialization.JsonPropertyName("kind")] string? Kind,
+        [property: System.Text.Json.Serialization.JsonPropertyName("createdAt")] DateTime? CreatedAtUtc);
+    private sealed record MoneySet([property: System.Text.Json.Serialization.JsonPropertyName("shopMoney")] Money? ShopMoney);
+    private sealed record Money(
+        [property: System.Text.Json.Serialization.JsonPropertyName("amount")] string Amount,
+        [property: System.Text.Json.Serialization.JsonPropertyName("currencyCode")] string CurrencyCode);
+    private sealed record PageInfo(
+        [property: System.Text.Json.Serialization.JsonPropertyName("hasNextPage")] bool HasNextPage,
+        [property: System.Text.Json.Serialization.JsonPropertyName("endCursor")] string? EndCursor);
 
     private static decimal ParseDecimal(string? value)
         => decimal.TryParse(
