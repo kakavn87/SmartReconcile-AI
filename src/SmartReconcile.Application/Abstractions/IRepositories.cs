@@ -5,7 +5,9 @@ namespace SmartReconcile.Application.Abstractions;
 
 public interface IOrderRepository
 {
+    Task<List<Order>> GetAllAsync(CancellationToken cancellationToken);
     Task<List<Order>> GetAllAsync(Guid tenantId, CancellationToken cancellationToken);
+    Task<Order?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task<Order?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken cancellationToken);
     Task AddAsync(Order order, CancellationToken cancellationToken);
     Task<int> CountAsync(CancellationToken cancellationToken);
