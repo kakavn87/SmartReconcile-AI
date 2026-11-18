@@ -9,6 +9,7 @@ public interface IOrderService
     Task<OrderDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task<OrderDto?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken cancellationToken);
     Task<OrderDto> CreateAsync(CreateOrderRequest request, CancellationToken cancellationToken);
+    Task<OrderDto> CreateAsync(CreateOrderRequest request, Guid tenantId, CancellationToken cancellationToken);
 }
 
 public interface IPaymentService
