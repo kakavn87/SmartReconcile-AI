@@ -40,11 +40,6 @@ public interface IDashboardService
     Task<DashboardDto> GetAsync(CancellationToken cancellationToken);
 }
 
-public interface ISeedService
-{
-    Task<SeedResult> GenerateAsync(CancellationToken cancellationToken);
-}
-
 public interface IAiAnalysisService
 {
     Task<AiAnalysisResponse> AnalyzeInvoiceAsync(AiAnalysisRequest request, CancellationToken cancellationToken);

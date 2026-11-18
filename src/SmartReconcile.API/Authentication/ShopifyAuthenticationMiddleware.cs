@@ -1,28 +1,24 @@
-using Microsoft.Extensions.Options;
-using SmartReconcile.Domain.Entities;
-
 namespace SmartReconcile.API.Authentication;
 
 public sealed class ShopifyAuthenticationMiddleware(
-    RequestDelegate next,
-    IOptions<ShopifyAuthenticationOptions> options)
+    RequestDelegate next)
 {
     public async Task InvokeAsync(
         HttpContext context,
         IShopifyAuthenticationService authentication,
         IShopifyTenantResolutionService tenantResolution)
     {
+        if (IsPublicRoute(context.Request.Path))
+        {
+            await next(context);
+            return;
+        }
+
         var authorization = context.Request.Headers.Authorization.FirstOrDefault();
 
         if (string.IsNullOrWhiteSpace(authorization))
         {
-            // Demo Mode is intentionally limited to requests without an Authorization
-            // header. Phase 2 will mark merchant/business API routes as requiring
-            // Shopify authentication and resolve their Tenant from the verified token.
-            if (options.Value.DemoModeEnabled)
-                context.Items[ShopifyAuthenticationContext.DemoModeItemKey] = true;
-
-            await next(context);
+            await WriteUnauthorizedAsync(context, "Shopify authentication is required.");
             return;
         }
 
@@ -50,6 +46,16 @@ public sealed class ShopifyAuthenticationMiddleware(
         }
     }
 
+    private static bool IsPublicRoute(PathString path)
+    {
+        return path.StartsWithSegments("/health")
+            || path.StartsWithSegments("/swagger")
+            || path.Equals("/api/auth/shopify/config")
+            || path.StartsWithSegments("/api/integrations/shopify/install")
+            || path.StartsWithSegments("/api/integrations/shopify/callback")
+            || path.StartsWithSegments("/api/webhooks/shopify");
+    }
+
     private static async Task WriteUnauthorizedAsync(HttpContext context, string message)
     {
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -61,17 +67,13 @@ public sealed class ShopifyAuthenticationMiddleware(
 public static class ShopifyAuthenticationContext
 {
     public const string SessionItemKey = "SmartReconcile.ShopifySession";
-    public const string DemoModeItemKey = "SmartReconcile.DemoMode";
-    public const string TenantItemKey = "SmartReconcile.Tenant";
-    public const string ConnectionItemKey = "SmartReconcile.Connection";
+    public const string TenantItemKey = "SmartReconcile.ShopifyTenant";
+    public const string ConnectionItemKey = "SmartReconcile.ShopifyConnection";
 
     public static ShopifySession? GetSession(HttpContext context)
         => context.Items.TryGetValue(SessionItemKey, out var value)
             ? value as ShopifySession
             : null;
-
-    public static bool IsDemoMode(HttpContext context)
-        => context.Items.ContainsKey(DemoModeItemKey);
 
     public static Tenant? GetTenant(HttpContext context)
         => context.Items.TryGetValue(TenantItemKey, out var value) ? value as Tenant : null;

@@ -13,13 +13,13 @@ declare global {
 @Injectable({ providedIn: 'root' })
 export class ShopifyBridgeService {
   readonly isEmbedded = signal(this.detectEmbedded());
-  readonly readyState = signal<'idle' | 'ready' | 'demo' | 'error'>('idle');
+  readonly readyState = signal<'idle' | 'ready' | 'error'>('idle');
 
   private initialization?: Promise<void>;
 
   initialize(): Promise<void> {
     if (!this.isEmbedded()) {
-      this.readyState.set('demo');
+      this.readyState.set('error');
       return Promise.resolve();
     }
 
