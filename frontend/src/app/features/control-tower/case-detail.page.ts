@@ -55,7 +55,7 @@ import { CaseDetailStore } from '../../core/stores/case-detail.store';
                   </div>
                   <div class="mt-4 text-sm font-extrabold text-slate-950">{{node?.exists ? node?.identifier : 'Fehlt'}}</div>
                   <div class="mt-2 text-xl font-extrabold text-slate-900">@if(node?.amount !== null && node?.amount !== undefined){{{node?.amount | currency:node?.currency:'symbol':'1.2-2':'de-DE'}}} @else {—}</div>
-                  <div class="mt-2 text-xs text-slate-500">{{node?.createdAtUtc ? (node?.createdAtUtc | date:'dd.MM.yyyy HH:mm':'':'de-DE') : 'Keine Daten vorhanden'}}</div>
+                  <div class="mt-2 text-xs text-slate-500">{{node?.createdAtUtc ? (node?.createdAtUtc | date:'dd.MM.yyyy HH:mm':'Europe/Berlin':'de-DE') : 'Keine Daten vorhanden'}}</div>
                   <div class="mt-3 text-xs text-slate-500">{{node?.detail}}</div>
                 </div>
               }
@@ -110,7 +110,7 @@ import { CaseDetailStore } from '../../core/stores/case-detail.store';
                 <div class="pb-7">
                   <div class="flex flex-wrap items-center gap-2"><span class="text-xs font-extrabold text-slate-900">{{eventLabel(event.eventType)}}</span><span class="text-[10px] font-semibold text-slate-400">{{event.actor}}</span></div>
                   <div class="mt-1 text-xs leading-5 text-slate-600">{{event.description}}</div>
-                  <div class="mt-1 text-[10px] font-semibold text-slate-400">{{event.createdAtUtc | date:'dd.MM.yyyy HH:mm:ss':'':'de-DE'}}</div>
+                  <div class="mt-1 text-[10px] font-semibold text-slate-400">{{event.createdAtUtc | date:'dd.MM.yyyy HH:mm:ss':'Europe/Berlin':'de-DE'}}</div>
                 </div>
               </div>
             } @empty { <div class="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Noch keine Audit-Ereignisse vorhanden.</div> }
