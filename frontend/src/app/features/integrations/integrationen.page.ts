@@ -3,7 +3,6 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { ApiService } from '../../core/api/api.service';
 import { IntegrationConnection } from '../../core/models/api.models';
 
-const DEMO_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 
 @Component({
   standalone: true,
@@ -151,7 +150,7 @@ export class IntegrationenPage {
   load() {
     this.loading.set(true);
     this.error.set(null);
-    this.api.integrationConnections(DEMO_TENANT_ID).subscribe({
+    this.api.currentTenantIntegrationConnections().subscribe({
       next: items => { this.connections.set(items.filter(x => x.provider === 'Shopify')); this.loading.set(false); },
       error: () => { this.loading.set(false); this.error.set('Verbindungen konnten nicht geladen werden.'); }
     });
