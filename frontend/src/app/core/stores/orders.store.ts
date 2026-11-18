@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { exhaustMap, filter, map, of, pipe, switchMap, tap } from 'rxjs';
+import { catchError, exhaustMap, filter, map, of, pipe, switchMap, tap } from 'rxjs';
 import { tapResponse } from '@ngrx/operators';
 import { ApiService } from '../api/api.service';
 import { Order } from '../models/api.models';
@@ -22,6 +22,7 @@ export const OrdersStore=signalStore(
             ? api.syncShopify(shopify.id).pipe(map(()=>true))
             : of(false);
         }),
+        catchError(()=>of(false)),
         switchMap(()=>api.orders()),
         tapResponse({
           next:items=>patchState(store,{
