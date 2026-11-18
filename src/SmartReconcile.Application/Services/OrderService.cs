@@ -14,5 +14,14 @@ public sealed class OrderService(IOrderRepository repository) : IOrderService
         await repository.AddAsync(order, cancellationToken);
         return Map(order);
     }
-    private static OrderDto Map(Order x) => new(x.Id, x.OrderNumber, x.CustomerName, x.CustomerEmail, x.TotalAmount, x.Currency, x.Status, x.CreatedAtUtc);
+
+    private static OrderDto Map(Order x) => new(
+        x.Id,
+        x.OrderNumber,
+        x.CustomerName,
+        x.CustomerEmail,
+        x.TotalAmount,
+        string.IsNullOrWhiteSpace(x.Currency) ? "EUR" : x.Currency,
+        x.Status.ToString(),
+        x.CreatedAtUtc);
 }
