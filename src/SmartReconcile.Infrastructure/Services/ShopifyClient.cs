@@ -142,7 +142,8 @@ public sealed class ShopifyClient(
             x.AmountSet?.ShopMoney?.CurrencyCode ?? "EUR",
             x.Status ?? "UNKNOWN",
             x.Kind ?? "UNKNOWN",
-            0m)).ToList() ?? [];
+            0m,
+            x.CreatedAtUtc ?? DateTime.UtcNow)).ToList() ?? [];
 
         var financialStatus = order.DisplayFinancialStatus ?? "PENDING";
         return new ShopifyOrder(
