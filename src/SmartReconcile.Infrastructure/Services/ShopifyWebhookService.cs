@@ -115,6 +115,10 @@ public sealed class ShopifyWebhookService(
                 await CancelOrderAsync(webhook.PayloadJson, cancellationToken);
                 break;
 
+            case "orders/delete":
+                await DeleteOrderAsync(webhook.ConnectionId, webhook.PayloadJson, cancellationToken);
+                break;
+
             case "refunds/create":
                 await ProcessRefundAsync(webhook.ConnectionId, webhook.PayloadJson, cancellationToken);
                 break;
@@ -137,7 +141,7 @@ public sealed class ShopifyWebhookService(
         }
 
         if (webhook.EventType is "orders/create" or "orders/updated" or "orders/paid" or
-            "orders/cancelled" or "refunds/create")
+            "orders/cancelled" or "orders/delete" or "refunds/create")
         {
             await reconciliation.ReconcileAsync(cancellationToken);
         }
@@ -275,13 +279,35 @@ public sealed class ShopifyWebhookService(
                 ? parsedCreated.ToUniversalTime()
                 : DateTime.UtcNow;
 
-            order = Order.Create(orderNumber, customerName, email, amount, status, createdAt);
+            var currency = root.TryGetProperty("currency", out var currencyProperty)
+                ? currencyProperty.GetString() ?? "EUR"
+                : "EUR";
+
+            order = Order.Create(orderNumber, customerName, email, amount, status, createdAt, currency: currency);
             await db.Orders.AddAsync(order, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
         }
-        else if (financialStatus == "PAID")
+        else
         {
-            order.ChangeStatus(OrderStatus.Paid);
+            var status = financialStatus switch
+            {
+                "PAID" => OrderStatus.Paid,
+                "PARTIALLY_PAID" => OrderStatus.Paid,
+                "AUTHORIZED" => OrderStatus.Pending,
+                "REFUNDED" => OrderStatus.Refunded,
+                _ => OrderStatus.Pending
+            };
+
+            var currency = root.TryGetProperty("currency", out var currencyProperty)
+                ? currencyProperty.GetString() ?? "EUR"
+                : "EUR";
+
+            var createdAt = root.TryGetProperty("created_at", out var created) &&
+                            DateTime.TryParse(created.GetString(), out var parsedCreated)
+                ? parsedCreated.ToUniversalTime()
+                : order.CreatedAtUtc;
+
+            order.UpdateFromShopify(amount, currency, status, createdAt);
         }
 
         if (!root.TryGetProperty("transactions", out var transactions) ||
@@ -348,6 +374,33 @@ public sealed class ShopifyWebhookService(
         }
 
         order?.ChangeStatus(OrderStatus.Cancelled);
+    }
+
+    private async Task DeleteOrderAsync(
+        Guid connectionId,
+        string rawBody,
+        CancellationToken cancellationToken)
+    {
+        using var document = JsonDocument.Parse(rawBody);
+        var root = document.RootElement;
+
+        if (!root.TryGetProperty("id", out var idProperty))
+            return;
+
+        var shopifyOrderId = idProperty.ToString();
+        var order = await FindOrderByShopifyIdAsync(connectionId, shopifyOrderId, cancellationToken);
+        if (order is null)
+            return;
+
+        var discrepancies = await db.Discrepancies
+            .Where(x => x.OrderId == order.Id)
+            .ToListAsync(cancellationToken);
+
+        if (discrepancies.Count > 0)
+            db.Discrepancies.RemoveRange(discrepancies);
+
+        db.Orders.Remove(order);
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private async Task ProcessRefundAsync(
