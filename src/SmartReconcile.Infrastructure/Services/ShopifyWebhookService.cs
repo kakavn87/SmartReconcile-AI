@@ -426,6 +426,13 @@ public sealed class ShopifyWebhookService(
             return;
 
         var shopifyOrderId = idProperty.ToString();
+        var tenantId = await db.IntegrationConnections
+            .Where(x => x.Id == connectionId)
+            .Select(x => x.TenantId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (tenantId == Guid.Empty)
+            return;
+
         var order = await FindOrderByShopifyIdAsync(connectionId, shopifyOrderId, cancellationToken);
         if (order is null)
             return;
