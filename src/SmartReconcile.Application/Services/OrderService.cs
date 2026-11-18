@@ -7,7 +7,9 @@ namespace SmartReconcile.Application.Services;
 public sealed class OrderService(IOrderRepository repository) : IOrderService
 {
     public async Task<IReadOnlyList<OrderDto>> GetAllAsync(CancellationToken cancellationToken) => (await repository.GetAllAsync(cancellationToken)).Select(Map).ToList();
+    public async Task<IReadOnlyList<OrderDto>> GetAllAsync(Guid tenantId, CancellationToken cancellationToken) => (await repository.GetAllAsync(tenantId, cancellationToken)).Select(Map).ToList();
     public async Task<OrderDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken) => (await repository.GetByIdAsync(id, cancellationToken)) is { } x ? Map(x) : null;
+    public async Task<OrderDto?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken cancellationToken) => (await repository.GetByIdAsync(id, tenantId, cancellationToken)) is { } x ? Map(x) : null;
     public async Task<OrderDto> CreateAsync(CreateOrderRequest request, CancellationToken cancellationToken)
     {
         var order = Order.Create(request.OrderNumber, request.CustomerName, request.CustomerEmail, request.TotalAmount, request.Status, request.CreatedAtUtc ?? DateTime.UtcNow);
