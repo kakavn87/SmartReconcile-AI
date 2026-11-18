@@ -71,12 +71,18 @@ public sealed class ShopifySyncService(
                          (string.Equals(x.Kind, "SALE", StringComparison.OrdinalIgnoreCase) ||
                           string.Equals(x.Kind, "CAPTURE", StringComparison.OrdinalIgnoreCase))))
             {
+                var transactionId = $"SHOPIFY-{transaction.ExternalTransactionId}";
+                if (await db.Payments.AnyAsync(
+                        x => x.TransactionId == transactionId,
+                        cancellationToken))
+                    continue;
+
                 var payment = Payment.Create(
                     order.Id,
-                    $"SHOPIFY-{transaction.ExternalTransactionId}",
+                    transactionId,
                     transaction.Amount,
                     PaymentStatus.Succeeded,
-                    DateTime.UtcNow);
+                    transaction.CreatedAtUtc == default ? DateTime.UtcNow : transaction.CreatedAtUtc);
 
                 await db.Payments.AddAsync(payment, cancellationToken);
                 importedPayments++;
