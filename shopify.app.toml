@@ -1,0 +1,10 @@
+[webhooks]
+api_version = "2026-10"
+
+[[webhooks.subscriptions]]
+topics = ["app/uninstalled"]
+uri = "https://smartreconcile-ai-api.onrender.com/api/webhooks/shopify"
+
+[[webhooks.subscriptions]]
+uri = "https://smartreconcile-ai-api.onrender.com/api/webhooks/shopify"
+compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
