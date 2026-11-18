@@ -65,9 +65,34 @@ public sealed class ShopifyOAuthService(
         var client = httpClientFactory.CreateClient();
         client.DefaultRequestHeaders.Add("X-Shopify-Access-Token", accessToken);
 
+        const string subscriptionsQuery = """
+        query CurrentWebhooks {
+          webhookSubscriptions(first: 100) {
+            nodes { topic uri }
+          }
+        }
+        """;
+
+        using var subscriptionsResponse = await client.PostAsJsonAsync(
+            $"https://{shopDomain}/admin/api/2026-10/graphql.json",
+            new { query = subscriptionsQuery },
+            cancellationToken);
+
+        subscriptionsResponse.EnsureSuccessStatusCode();
+
+        var subscriptionsPayload = await subscriptionsResponse.Content.ReadFromJsonAsync<WebhookSubscriptionsResponse>(
+            cancellationToken: cancellationToken) ?? throw new InvalidOperationException("Shopify lieferte keine Webhook-Subscriptions.");
+
+        var existing = subscriptionsPayload.Data?.WebhookSubscriptions?.Nodes?
+            .Where(x => !string.IsNullOrWhiteSpace(x.Topic) && !string.IsNullOrWhiteSpace(x.Uri))
+            .Select(x => $"{x.Topic}|{x.Uri}")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase)
+            ?? [];
+
         const string mutation = """
         mutation CreateWebhook($topic: WebhookSubscriptionTopic!, $uri: URI!) {
-          webhookSubscriptionCreate(topic: $topic, webhookSubscription: {callbackUrl: $uri, format: JSON}) {
+          webhookSubscriptionCreate(topic: $topic, webhookSubscription: {uri: $uri, format: JSON}) {
+            webhookSubscription { id topic uri }
             userErrors { field message }
           }
         }
@@ -86,14 +111,33 @@ public sealed class ShopifyOAuthService(
 
         foreach (var topic in topics)
         {
+            if (existing.Contains($"{topic}|{callbackUrl}"))
+                continue;
+
             using var response = await client.PostAsJsonAsync(
                 $"https://{shopDomain}/admin/api/2026-10/graphql.json",
                 new { query = mutation, variables = new { topic, uri = callbackUrl } },
                 cancellationToken);
 
             response.EnsureSuccessStatusCode();
+
+            var payload = await response.Content.ReadFromJsonAsync<WebhookMutationResponse>(
+                cancellationToken: cancellationToken);
+
+            var errors = payload?.Data?.WebhookSubscriptionCreate?.UserErrors;
+            if (errors is { Count: > 0 })
+                throw new InvalidOperationException($"Shopify webhook {topic} konnte nicht registriert werden: {errors[0].Message}");
         }
     }
+
+    private sealed record WebhookSubscriptionsResponse(WebhookSubscriptionsData? Data);
+    private sealed record WebhookSubscriptionsData(WebhookSubscriptionNodes? WebhookSubscriptions);
+    private sealed record WebhookSubscriptionNodes(List<WebhookSubscriptionNode>? Nodes);
+    private sealed record WebhookSubscriptionNode(string? Topic, string? Uri);
+    private sealed record WebhookMutationResponse(WebhookMutationData? Data);
+    private sealed record WebhookMutationData(WebhookSubscriptionCreatePayload? WebhookSubscriptionCreate);
+    private sealed record WebhookSubscriptionCreatePayload(List<WebhookUserError>? UserErrors);
+    private sealed record WebhookUserError(List<string>? Field, string Message);
 
     public bool VerifyCallbackHmac(IReadOnlyDictionary<string, string?> parameters)
     {
