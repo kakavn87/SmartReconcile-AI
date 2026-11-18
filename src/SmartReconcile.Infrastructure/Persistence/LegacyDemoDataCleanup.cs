@@ -16,8 +16,7 @@ public static class LegacyDemoDataCleanup
             ? []
             : await db.Payments
                 .Where(x => demoOrderIds.Contains(x.OrderId))
-                .Where(x => x.Id.HasValue)
-                .Select(x => x.Id!.Value)
+                .Select(x => x.Id)
                 .ToListAsync(cancellationToken);
 
         var demoInvoiceIds = await db.Invoices
@@ -31,7 +30,7 @@ public static class LegacyDemoDataCleanup
             .Concat(demoInvoiceIds)
             .ToHashSet();
 
-        if (demoEntityIds.Count > 0)
+        if (demoEntityIds.Any())
         {
             var demoDiscrepancyIds = await db.Discrepancies
                 .Where(x => (x.OrderId.HasValue && demoOrderIds.Contains(x.OrderId.Value)) ||
@@ -40,7 +39,7 @@ public static class LegacyDemoDataCleanup
                 .Select(x => x.Id)
                 .ToListAsync(cancellationToken);
 
-            if (demoDiscrepancyIds.Count > 0)
+            if (demoDiscrepancyIds.Any())
             {
                 var demoCases = await db.FinancialCases
                     .Where(x => demoDiscrepancyIds.Contains(x.DiscrepancyId))
@@ -60,7 +59,7 @@ public static class LegacyDemoDataCleanup
             db.FinancialGraphRelations.RemoveRange(graphRelations);
         }
 
-        if (demoOrderIds.Count > 0)
+        if (demoOrderIds.Any())
         {
             db.Orders.RemoveRange(
                 await db.Orders
@@ -68,7 +67,7 @@ public static class LegacyDemoDataCleanup
                     .ToListAsync(cancellationToken));
         }
 
-        if (demoInvoiceIds.Count > 0)
+        if (demoInvoiceIds.Any())
         {
             db.Invoices.RemoveRange(
                 await db.Invoices
