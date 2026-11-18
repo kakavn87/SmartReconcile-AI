@@ -32,6 +32,7 @@ public sealed class DatevExtfExporterTests
             19m);
 
         var payment = Payment.Create(
+            tenant.Id,
             order.Id,
             "PAY-TEST-1",
             119m,
@@ -46,6 +47,7 @@ public sealed class DatevExtfExporterTests
         var exporter = new DatevExtfExporter(db, new TestAccountingSettingsService(settings));
 
         var bytes = await exporter.ExportAsync(
+            tenant.Id,
             new DateOnly(2026, 11, 1),
             new DateOnly(2026, 11, 30),
             true,
@@ -124,6 +126,7 @@ public sealed class DatevExtfExporterTests
             new DateTime(2026, 11, 3, 10, 5, 0, DateTimeKind.Utc));
 
         var discrepancy = Discrepancy.Create(
+            tenant.Id,
             DiscrepancyType.AmountMismatch,
             "Betragsabweichung",
             "Test",
