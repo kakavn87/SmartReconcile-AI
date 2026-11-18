@@ -5,7 +5,9 @@ namespace SmartReconcile.Application.Abstractions;
 public interface IOrderService
 {
     Task<IReadOnlyList<OrderDto>> GetAllAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<OrderDto>> GetAllAsync(Guid tenantId, CancellationToken cancellationToken);
     Task<OrderDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+    Task<OrderDto?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken cancellationToken);
     Task<OrderDto> CreateAsync(CreateOrderRequest request, CancellationToken cancellationToken);
 }
 
