@@ -42,7 +42,7 @@ public static class LegacyDemoDataCleanup
             if (demoDiscrepancyIds.Any())
             {
                 var demoCases = await db.FinancialCases
-                    .Where(x => demoDiscrepancyIds.Contains(x.DiscrepancyId))
+                    .Where(x => x.DiscrepancyId.HasValue && demoDiscrepancyIds.Contains(x.DiscrepancyId.Value))
                     .ToListAsync(cancellationToken);
 
                 db.FinancialCases.RemoveRange(demoCases);
