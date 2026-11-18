@@ -44,7 +44,7 @@ public sealed class ControlTowerService(
 
         var caseDtos = new List<FinancialCaseDto>();
         foreach (var item in openCases.OrderByDescending(x => x.Severity).ThenByDescending(x => x.DetectedAtUtc).Take(20))
-            caseDtos.Add(await MapCaseAsync(item, cancellationToken));
+            caseDtos.Add(await MapCaseAsync(tenantId, item, cancellationToken));
 
         return new ControlTowerDto(
             score,
@@ -77,7 +77,7 @@ public sealed class ControlTowerService(
             ? await discrepancies.GetByIdAsync(item.DiscrepancyId.Value, tenantId, cancellationToken)
             : null;
 
-        var graphNodes = await BuildGraphNodesAsync(discrepancy, links, cancellationToken);
+        var graphNodes = await BuildGraphNodesAsync(tenantId, discrepancy, links, cancellationToken);
 
         var analysis = discrepancy?.AiAnalysis ?? item.RootCause;
         var recommendedAction = timeline
@@ -126,7 +126,7 @@ public sealed class ControlTowerService(
 
         item.StartInvestigation();
 
-        var context = await BuildAiContextAsync(discrepancy, links, cancellationToken);
+        var context = await BuildAiContextAsync(tenantId, discrepancy, links, cancellationToken);
         var aiResult = await aiAnalysis.AnalyzeFinancialCaseAsync(
             new FinancialCaseAnalysisRequest(item.Title, item.Description, context),
             cancellationToken);
@@ -379,6 +379,7 @@ public sealed class ControlTowerService(
     }
 
     private async Task<List<FinancialGraphNodeDto>> BuildGraphNodesAsync(
+        Guid tenantId,
         Discrepancy? discrepancy,
         IReadOnlyList<FinancialCaseLink> links,
         CancellationToken cancellationToken)
@@ -433,6 +434,7 @@ public sealed class ControlTowerService(
     }
 
     private async Task<string> BuildAiContextAsync(
+        Guid tenantId,
         Discrepancy? discrepancy,
         IReadOnlyList<FinancialCaseLink> links,
         CancellationToken cancellationToken)
@@ -475,7 +477,7 @@ public sealed class ControlTowerService(
             _ => "Unbekannt"
         };
 
-    private async Task<FinancialCaseDto> MapCaseAsync(FinancialCase item, CancellationToken cancellationToken)
+    private async Task<FinancialCaseDto> MapCaseAsync(Guid tenantId, FinancialCase item, CancellationToken cancellationToken)
     {
         var links = await caseLinks.GetForCaseAsync(tenantId, item.Id, cancellationToken);
         return new FinancialCaseDto(
