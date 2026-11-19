@@ -405,7 +405,16 @@ public sealed class ControlTowerService(
         var invoiceId = discrepancy?.InvoiceId ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Invoice)?.EntityId;
 
         var order = orderId.HasValue ? await orders.GetByIdAsync(orderId.Value, tenantId, cancellationToken) : null;
-        var payment = paymentId.HasValue ? await payments.GetByIdAsync(paymentId.Value, tenantId, cancellationToken) : null;
+
+        // A discrepancy may not carry PaymentId when there is no payment (MissingPayment)
+        // or when the rule is order-level (e.g. CurrencyMismatch). In that case resolve
+        // the first real payment for the affected order instead of showing a false "Fehlt".
+        var payment = paymentId.HasValue
+            ? await payments.GetByIdAsync(paymentId.Value, tenantId, cancellationToken)
+            : orderId.HasValue
+                ? await payments.GetForOrderAsync(orderId.Value, tenantId, cancellationToken)
+                : null;
+
         var invoice = invoiceId.HasValue ? await invoices.GetByIdAsync(invoiceId.Value, tenantId, cancellationToken) : null;
 
         return
@@ -423,7 +432,7 @@ public sealed class ControlTowerService(
                     order.CreatedAtUtc,
                     $"Kunde: {order.CustomerName}"),
             payment is null
-                ? MissingNode(FinancialNodeType.Payment)
+                ? PaymentMissingNode()
                 : new FinancialGraphNodeDto(
                     FinancialNodeType.Payment,
                     payment.Id,
@@ -433,9 +442,9 @@ public sealed class ControlTowerService(
                     payment.Amount,
                     payment.Currency,
                     payment.PaidAtUtc,
-                    "Zahlungstransaktion"),
+                    $"Zahlungstransaktion{(string.IsNullOrWhiteSpace(payment.Gateway) ? string.Empty : $" · {payment.Gateway}")}"),
             invoice is null
-                ? MissingNode(FinancialNodeType.Invoice)
+                ? InvoiceNotLinkedNode()
                 : new FinancialGraphNodeDto(
                     FinancialNodeType.Invoice,
                     invoice.Id,
@@ -471,6 +480,30 @@ public sealed class ControlTowerService(
 
     private static FinancialGraphNodeDto MissingNode(FinancialNodeType type)
         => new(type, null, false, "Fehlt", null, null, "EUR", null, "Keine verknüpfte Entität vorhanden.");
+
+    private static FinancialGraphNodeDto PaymentMissingNode()
+        => new(
+            FinancialNodeType.Payment,
+            null,
+            false,
+            "Kein Zahlungseingang",
+            null,
+            null,
+            "EUR",
+            null,
+            "Für diese Bestellung wurde keine passende Zahlungstransaktion verbucht.");
+
+    private static FinancialGraphNodeDto InvoiceNotLinkedNode()
+        => new(
+            FinancialNodeType.Invoice,
+            null,
+            false,
+            "Nicht verknüpft",
+            null,
+            null,
+            "EUR",
+            null,
+            "Nicht verknüpft (Shopify-Direktabgleich).");
 
     private static string MapOrderStatus(OrderStatus status)
         => status switch
