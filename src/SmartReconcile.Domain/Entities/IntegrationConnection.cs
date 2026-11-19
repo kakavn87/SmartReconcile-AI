@@ -13,6 +13,7 @@ public sealed class IntegrationConnection
     public string DisplayName { get; private set; } = string.Empty;
     public string? ApiKeyHash { get; private set; }
     public string? ShopDomain { get; private set; }
+    public string ShopCurrency { get; private set; } = "EUR";
     public string? EncryptedAccessToken { get; private set; }
     public string? EncryptedRefreshToken { get; private set; }
     public DateTime? AccessTokenExpiresAtUtc { get; private set; }
@@ -92,6 +93,12 @@ public sealed class IntegrationConnection
         LastWebhookAtUtc = DateTime.UtcNow;
         LastSeenAtUtc = LastWebhookAtUtc;
         Status = ConnectionStatus.Connected;
+    }
+
+    public void SetShopCurrency(string currency)
+    {
+        if (!string.IsNullOrWhiteSpace(currency))
+            ShopCurrency = currency.Trim().ToUpperInvariant();
     }
 
     public void MarkSynced()
