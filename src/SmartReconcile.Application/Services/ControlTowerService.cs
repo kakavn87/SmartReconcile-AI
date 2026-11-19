@@ -370,18 +370,22 @@ public sealed class ControlTowerService(
                     linkedPayment.TransactionId,
                     linkedPayment.Amount));
 
-            if (discrepancy.InvoiceId.HasValue)
+            var linkedInvoice = discrepancy.InvoiceId.HasValue
+                ? await invoices.GetByIdAsync(discrepancy.InvoiceId.Value, tenantId, cancellationToken)
+                : resolvedOrderId.HasValue
+                    ? await invoices.GetSalesInvoiceForOrderAsync(resolvedOrderId.Value, tenantId, cancellationToken)
+                    : null;
+
+            if (linkedInvoice is not null)
             {
-                var invoice = await invoices.GetByIdAsync(discrepancy.InvoiceId.Value, tenantId, cancellationToken);
-                if (invoice is not null)
-                    links.Add(FinancialCaseLink.Create(
-                        tenantId,
-                        financialCase.Id,
-                        FinancialNodeType.Invoice,
-                        invoice.Id,
-                        "Rechnung",
-                        invoice.InvoiceNumber,
-                        invoice.Amount));
+                links.Add(FinancialCaseLink.Create(
+                    tenantId,
+                    financialCase.Id,
+                    FinancialNodeType.Invoice,
+                    linkedInvoice.Id,
+                    "Rechnung",
+                    linkedInvoice.InvoiceNumber,
+                    linkedInvoice.Amount));
             }
 
             await caseLinks.AddRangeAsync(links, cancellationToken);
@@ -483,10 +487,14 @@ public sealed class ControlTowerService(
                 payment.Amount));
         }
 
-        if (discrepancy.InvoiceId.HasValue &&
-            existingLinks.All(x => x.NodeType != FinancialNodeType.Invoice))
+        if (existingLinks.All(x => x.NodeType != FinancialNodeType.Invoice))
         {
-            var invoice = await invoices.GetByIdAsync(discrepancy.InvoiceId.Value, tenantId, cancellationToken);
+            var invoice = discrepancy.InvoiceId.HasValue
+                ? await invoices.GetByIdAsync(discrepancy.InvoiceId.Value, tenantId, cancellationToken)
+                : orderId.HasValue
+                    ? await invoices.GetSalesInvoiceForOrderAsync(orderId.Value, tenantId, cancellationToken)
+                    : null;
+
             if (invoice is not null)
             {
                 linksToAdd.Add(FinancialCaseLink.Create(
@@ -561,7 +569,11 @@ public sealed class ControlTowerService(
             paymentId = payment?.Id;
         }
 
-        var invoice = invoiceId.HasValue ? await invoices.GetByIdAsync(invoiceId.Value, tenantId, cancellationToken) : null;
+        var invoice = invoiceId.HasValue
+            ? await invoices.GetByIdAsync(invoiceId.Value, tenantId, cancellationToken)
+            : orderId.HasValue
+                ? await invoices.GetSalesInvoiceForOrderAsync(orderId.Value, tenantId, cancellationToken)
+                : null;
 
         return
         [
@@ -584,7 +596,7 @@ public sealed class ControlTowerService(
                     payment.Id,
                     true,
                     MapPaymentStatus(payment.Status),
-                    payment.TransactionId,
+                    FormatTransactionIdentifier(payment.TransactionId),
                     payment.Amount,
                     payment.Currency,
                     payment.PaidAtUtc,
@@ -677,6 +689,17 @@ public sealed class ControlTowerService(
             PaymentStatus.Refunded => "Erstattet",
             _ => "Unbekannt"
         };
+
+    private static string FormatTransactionIdentifier(string transactionId)
+    {
+        if (string.IsNullOrWhiteSpace(transactionId))
+            return "—";
+
+        var lastSegment = transactionId.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
+        return string.IsNullOrWhiteSpace(lastSegment)
+            ? transactionId
+            : $"#{lastSegment}";
+    }
 
     private async Task<FinancialCaseDto> MapCaseAsync(Guid tenantId, FinancialCase item, CancellationToken cancellationToken)
     {
