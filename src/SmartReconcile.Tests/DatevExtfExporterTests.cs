@@ -157,6 +157,118 @@ public sealed class DatevExtfExporterTests
     }
 
     [Fact]
+    public async Task Exporter_includes_successful_refund_for_paid_order()
+    {
+        await using var db = CreateDb();
+        var tenant = Tenant.Create("Test GmbH", "test-refund-export");
+        await db.Tenants.AddAsync(tenant);
+        var settings = AccountingSettings.CreateDefault(tenant.Id);
+        await db.AccountingSettings.AddAsync(settings);
+
+        var order = Order.Create(
+            "SHOPIFY-#1007",
+            "Shopify Kunde",
+            "shop@example.de",
+            3163.40m,
+            OrderStatus.Paid,
+            new DateTime(2026, 11, 29, 10, 0, 0, DateTimeKind.Utc),
+            19m);
+
+        var sale = Payment.Create(
+            tenant.Id,
+            order.Id,
+            "SALE-1007",
+            3163.40m,
+            PaymentStatus.Succeeded,
+            new DateTime(2026, 11, 29, 10, 5, 0, DateTimeKind.Utc));
+
+        var refund = Payment.Create(
+            tenant.Id,
+            order.Id,
+            "REFUND-1007",
+            200m,
+            PaymentStatus.Refunded,
+            new DateTime(2026, 11, 29, 12, 0, 0, DateTimeKind.Utc),
+            kind: PaymentKind.Refund);
+
+        await db.Orders.AddAsync(order);
+        await db.Payments.AddRangeAsync(sale, refund);
+        await db.SaveChangesAsync();
+
+        var exporter = new DatevExtfExporter(db, new TestAccountingSettingsService(settings));
+
+        var bytes = await exporter.ExportAsync(
+            tenant.Id,
+            new DateOnly(2026, 11, 1),
+            new DateOnly(2026, 11, 30),
+            false,
+            CancellationToken.None);
+
+        var text = Decode(bytes);
+
+        Assert.Contains("3163,40;S;", text);
+        Assert.Contains(";1360;8400;", text);
+        Assert.Contains("200,00;H;", text);
+        Assert.Contains("Erstattung REFUND-1007", text);
+    }
+
+    [Fact]
+    public async Task Exporter_includes_paid_order_even_when_it_has_open_discrepancy()
+    {
+        await using var db = CreateDb();
+        var tenant = Tenant.Create("Test GmbH", "test-paid-discrepancy");
+        await db.Tenants.AddAsync(tenant);
+        var settings = AccountingSettings.CreateDefault(tenant.Id);
+        await db.AccountingSettings.AddAsync(settings);
+
+        var order = Order.Create(
+            "PAID-DISC-1",
+            "Shopify Kunde",
+            "shop@example.de",
+            500m,
+            OrderStatus.Paid,
+            new DateTime(2026, 11, 10, 10, 0, 0, DateTimeKind.Utc),
+            19m);
+
+        var payment = Payment.Create(
+            tenant.Id,
+            order.Id,
+            "PAY-DISC-1",
+            450m,
+            PaymentStatus.Succeeded,
+            new DateTime(2026, 11, 10, 10, 5, 0, DateTimeKind.Utc));
+
+        var discrepancy = Discrepancy.Create(
+            tenant.Id,
+            DiscrepancyType.AmountMismatch,
+            "Betragsabweichung",
+            "Test",
+            50m,
+            order.Id,
+            payment.Id,
+            null);
+
+        await db.Orders.AddAsync(order);
+        await db.Payments.AddAsync(payment);
+        await db.Discrepancies.AddAsync(discrepancy);
+        await db.SaveChangesAsync();
+
+        var exporter = new DatevExtfExporter(db, new TestAccountingSettingsService(settings));
+
+        var bytes = await exporter.ExportAsync(
+            tenant.Id,
+            new DateOnly(2026, 11, 10),
+            new DateOnly(2026, 11, 10),
+            false,
+            CancellationToken.None);
+
+        var text = Decode(bytes);
+
+        Assert.Contains("500,00;S;", text);
+        Assert.Contains("PAID-DISC-1", text);
+    }
+
+    [Fact]
     public async Task Only_reconciled_excludes_open_discrepancy()
     {
         await using var db = CreateDb();
