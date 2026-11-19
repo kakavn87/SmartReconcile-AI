@@ -31,7 +31,7 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
             e.Property(x => x.OrderNumber).HasMaxLength(50).IsRequired();
             e.Property(x => x.CustomerName).HasMaxLength(200).IsRequired();
             e.Property(x => x.CustomerEmail).HasMaxLength(320).IsRequired();
-            e.HasOne(x => x.Payment).WithOne(x => x.Order).HasForeignKey<Payment>(x => x.OrderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Payments).WithOne(x => x.Order).HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Payment>(e =>
