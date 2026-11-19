@@ -163,8 +163,6 @@ public static class IntegrationSchemaInitializer
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_AccountingSettings_TenantId"
                 ON "AccountingSettings" ("TenantId");
 
-            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "ShopCurrency" varchar(3) NOT NULL DEFAULT 'EUR';
-
             CREATE TABLE IF NOT EXISTS "IntegrationConnections" (
                 "Id" uuid NOT NULL PRIMARY KEY,
                 "TenantId" uuid NOT NULL,
@@ -175,6 +173,7 @@ public static class IntegrationSchemaInitializer
                 "Status" integer NOT NULL,
                 "CreatedAtUtc" timestamp with time zone NOT NULL,
                 "LastSeenAtUtc" timestamp with time zone NULL,
+                "ShopCurrency" varchar(3) NOT NULL DEFAULT 'EUR',
                 CONSTRAINT "FK_IntegrationConnections_Tenants_TenantId"
                     FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE
             );
@@ -183,6 +182,7 @@ public static class IntegrationSchemaInitializer
                 ON "IntegrationConnections" ("TenantId", "Provider", "ExternalStoreId");
 
             ALTER TABLE "IntegrationConnections" ALTER COLUMN "ApiKeyHash" DROP NOT NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "ShopCurrency" varchar(3) NOT NULL DEFAULT 'EUR';
             ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "ShopDomain" varchar(255) NULL;
             ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "EncryptedAccessToken" text NULL;
             ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "EncryptedRefreshToken" text NULL;
