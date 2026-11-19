@@ -19,8 +19,14 @@ import { ApiService } from '../../core/api/api.service';
       <div class="flex justify-between"><div><div class="text-xs font-bold uppercase tracking-wide text-slate-400">BESTELLUNG</div><h2 class="mt-1 text-xl font-extrabold">{{selected()!.orderNumber}}</h2></div><button type="button" (click)="close()" class="text-2xl text-slate-400">×</button></div>
       <div class="mt-6 space-y-4 text-sm"><div><span class="text-slate-400">Kunde</span><div class="font-bold">{{selected()!.customerName}}</div><div>{{selected()!.customerEmail}}</div></div><div><span class="text-slate-400">Betrag</span><div class="font-bold">{{selected()!.totalAmount|currency:selected()!.currency:'symbol':'1.2-2':'de-DE'}}</div></div><div><span class="text-slate-400">Status</span><div class="font-bold">{{statusLabel(selected()!.status)}}</div></div>
         <button type="button" (click)="openPayment()" class="block w-full rounded-xl bg-slate-50 p-4 text-left font-bold hover:bg-slate-100">→ Zahlungen öffnen</button>
-        <button type="button" (click)="createInvoice(selected()!);$event.stopPropagation()" class="w-full rounded-xl bg-slate-950 p-4 text-left font-bold text-white">+ Rechnung aus Bestellung erzeugen</button>
-        <button type="button" (click)="openInvoice()" class="block w-full rounded-xl bg-slate-50 p-4 text-left font-bold hover:bg-slate-100">→ Rechnungen öffnen</button>
+        @if(selected()!.invoiceId){
+          <button type="button" (click)="openInvoice()" class="block w-full rounded-xl bg-slate-50 p-4 text-left font-bold hover:bg-slate-100">
+            Rechnung <span class="ml-1">{{selected()!.invoiceNumber}}</span> öffnen
+          </button>
+        } @else {
+          <button type="button" (click)="createInvoice(selected()!);$event.stopPropagation()" class="w-full rounded-xl bg-slate-950 p-4 text-left font-bold text-white">+ Rechnung aus Bestellung erzeugen</button>
+          <button type="button" (click)="openInvoice()" class="block w-full rounded-xl bg-slate-50 p-4 text-left font-bold hover:bg-slate-100">→ Rechnung öffnen</button>
+        }
       </div></aside>}
   `
 })
@@ -61,7 +67,11 @@ export class OrdersPage {
   openInvoice(){
     const item=this.selected();
     if(!item)return;
-    this.router.navigate(['/rechnungen'],{queryParams:{orderId:item.id,from:'bestellungen',fromId:item.id}});
+    this.router.navigate(['/rechnungen'],{
+      queryParams:item.invoiceId
+        ? {invoiceId:item.invoiceId,from:'bestellungen',fromId:item.id}
+        : {orderId:item.id,from:'bestellungen',fromId:item.id}
+    });
   }
   goBack(){
     const target=this.returnTarget();

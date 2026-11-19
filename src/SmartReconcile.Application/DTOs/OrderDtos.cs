@@ -12,4 +12,6 @@ public sealed record OrderDto(
     [property: JsonPropertyName("totalAmount")] decimal TotalAmount,
     [property: JsonPropertyName("currency")] string Currency,
     [property: JsonPropertyName("status")] string Status,
-    [property: JsonPropertyName("createdAtUtc")] DateTime CreatedAtUtc);
+    [property: JsonPropertyName("createdAtUtc")] DateTime CreatedAtUtc,
+    [property: JsonPropertyName("invoiceId")] Guid? InvoiceId,
+    [property: JsonPropertyName("invoiceNumber")] string? InvoiceNumber);
