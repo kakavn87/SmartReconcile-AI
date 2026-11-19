@@ -48,4 +48,14 @@ public sealed class FinancialCase
     public void SetRootCause(string rootCause) { if (!string.IsNullOrWhiteSpace(rootCause)) RootCause = rootCause.Trim(); }
     public void Resolve(string? rootCause = null) { if (!string.IsNullOrWhiteSpace(rootCause)) RootCause = rootCause.Trim(); Status = FinancialCaseStatus.Resolved; ResolvedAtUtc = DateTime.UtcNow; }
     public void Ignore() { Status = FinancialCaseStatus.Ignored; ResolvedAtUtc = DateTime.UtcNow; }
+
+    public bool NormalizeLegacyStatus()
+    {
+        if ((int)Status != 0)
+            return false;
+
+        Status = FinancialCaseStatus.Open;
+        ResolvedAtUtc = null;
+        return true;
+    }
 }
