@@ -43,6 +43,9 @@ public static class IntegrationSchemaInitializer
                 ON "Orders" ("TenantId");
 
             ALTER TABLE "Payments" ADD COLUMN IF NOT EXISTS "FeeAmount" numeric(18,2) NOT NULL DEFAULT 0;
+            -- One order can legitimately have multiple Shopify transactions (sale, capture, refund).
+            -- Remove the legacy one-payment-per-order index left by the original demo schema.
+            DROP INDEX IF EXISTS "IX_Payments_OrderId";
             ALTER TABLE "Payments" ADD COLUMN IF NOT EXISTS "Kind" integer NOT NULL DEFAULT 0;
             ALTER TABLE "Payments" ADD COLUMN IF NOT EXISTS "Gateway" varchar(200);
             ALTER TABLE "Payments" ADD COLUMN IF NOT EXISTS "Currency" varchar(3) NOT NULL DEFAULT 'EUR';
