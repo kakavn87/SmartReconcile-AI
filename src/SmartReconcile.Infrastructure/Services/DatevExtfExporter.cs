@@ -82,6 +82,28 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
                 $"E-Commerce Umsatz {order.OrderNumber}"));
         }
 
+        // Refunds reverse the original clearing/revenue posting:
+        // clearing account remains Konto, revenue account remains Gegenkonto,
+        // but the Konto is credited (H) instead of debited (S).
+        foreach (var refund in selectedPayments.Where(x => x.Kind == PaymentKind.Refund && x.Amount > 0))
+        {
+            var order = selectedOrders.FirstOrDefault(x => x.Id == refund.OrderId);
+            if (order is null)
+                continue;
+
+            var revenueAccount = order.TaxRate <= 7.01m
+                ? settings.RevenueAccount7
+                : settings.RevenueAccount19;
+
+            bookings.Add(DatevBooking.Refund(
+                refund.Amount,
+                revenueAccount,
+                settings.PaymentClearingAccount,
+                refund.PaidAtUtc,
+                refund.TransactionId,
+                $"Rückerstattung {refund.TransactionId}"));
+        }
+
         foreach (var payment in selectedPayments.Where(x => x.FeeAmount > 0))
         {
             bookings.Add(DatevBooking.Fee(
@@ -121,7 +143,7 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
             "4",
             from.ToString("yyyyMMdd", CultureInfo.InvariantCulture),
             to.ToString("yyyyMMdd", CultureInfo.InvariantCulture),
-            Quote($"SmartReconcile {from:MM.yyyy}"),
+            Quote($"SmartReconcile {to:MM.yyyy}"),
             Quote("SR"),
             "1",
             "0",
@@ -192,7 +214,20 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
             DateTime date,
             string reference,
             string text)
-            => new(amount, false, revenueAccount, clearingAccount, date, reference, text);
+            // DATEV convention used here: clearing/receivable account in Konto,
+            // revenue account in Gegenkonto, Konto is debited.
+            => new(amount, true, clearingAccount, revenueAccount, date, reference, text);
+
+        public static DatevBooking Refund(
+            decimal amount,
+            string revenueAccount,
+            string clearingAccount,
+            DateTime date,
+            string reference,
+            string text)
+            // Reverse the original posting: clearing/receivable account in Konto,
+            // revenue account in Gegenkonto, Konto is credited.
+            => new(amount, false, clearingAccount, revenueAccount, date, reference, text);
 
         public static DatevBooking Fee(
             decimal amount,
@@ -201,6 +236,7 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
             DateTime date,
             string reference,
             string text)
+            // Fee expense is debited against the clearing account.
             => new(amount, true, feeAccount, clearingAccount, date, reference, text);
     }
 }
