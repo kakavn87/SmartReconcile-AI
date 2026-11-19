@@ -9,7 +9,7 @@ namespace SmartReconcile.Infrastructure.Repositories;
 public sealed class FinancialCaseRepository(SmartReconcileDbContext db) : IFinancialCaseRepository
 {
     public Task<List<FinancialCase>> GetAllAsync(Guid tenantId, CancellationToken ct)
-        => db.FinancialCases.AsNoTracking().Where(x => x.TenantId == tenantId).OrderByDescending(x => x.DetectedAtUtc).ToListAsync(ct);
+        => db.FinancialCases.Where(x => x.TenantId == tenantId).OrderByDescending(x => x.DetectedAtUtc).ToListAsync(ct);
 
     public Task<FinancialCase?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken ct)
         => db.FinancialCases.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId, ct);
@@ -41,7 +41,7 @@ public sealed class FinancialCaseLinkRepository(SmartReconcileDbContext db) : IF
 public sealed class CaseAuditEventRepository(SmartReconcileDbContext db) : ICaseAuditEventRepository
 {
     public Task<List<CaseAuditEvent>> GetForCaseAsync(Guid tenantId, Guid financialCaseId, CancellationToken ct)
-        => db.CaseAuditEvents.AsNoTracking().Where(x => x.TenantId == tenantId && x.FinancialCaseId == financialCaseId).OrderByDescending(x => x.CreatedAtUtc).ToListAsync(ct);
+        => db.CaseAuditEvents.Where(x => x.TenantId == tenantId && x.FinancialCaseId == financialCaseId).OrderByDescending(x => x.CreatedAtUtc).ToListAsync(ct);
     public async Task AddAsync(CaseAuditEvent auditEvent, CancellationToken ct) => await db.CaseAuditEvents.AddAsync(auditEvent, ct);
     public Task SaveAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 }
