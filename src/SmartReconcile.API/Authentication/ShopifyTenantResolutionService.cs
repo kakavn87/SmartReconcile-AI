@@ -45,20 +45,20 @@ public sealed class ShopifyTenantResolutionService(
             // fail with "Keine gültige Shopify-Verbindung.".
             if (string.IsNullOrWhiteSpace(existingConnection.EncryptedAccessToken))
             {
-                var token = await authentication.ExchangeIdTokenAsync(
+                var refreshedCredentials = await authentication.ExchangeIdTokenAsync(
                     shopDomain,
                     idToken,
                     cancellationToken);
 
                 existingConnection.UpdateShopifyCredentials(
-                    secretProtector.Protect(token.AccessToken),
-                    token.Scope,
-                    string.IsNullOrWhiteSpace(token.RefreshToken)
+                    secretProtector.Protect(refreshedCredentials.AccessToken),
+                    refreshedCredentials.Scope,
+                    string.IsNullOrWhiteSpace(refreshedCredentials.RefreshToken)
                         ? existingConnection.EncryptedRefreshToken
-                        : secretProtector.Protect(token.RefreshToken),
-                    DateTime.UtcNow.AddSeconds(token.ExpiresInSeconds),
-                    token.RefreshTokenExpiresInSeconds > 0
-                        ? DateTime.UtcNow.AddSeconds(token.RefreshTokenExpiresInSeconds)
+                        : secretProtector.Protect(refreshedCredentials.RefreshToken),
+                    DateTime.UtcNow.AddSeconds(refreshedCredentials.ExpiresInSeconds),
+                    refreshedCredentials.RefreshTokenExpiresInSeconds > 0
+                        ? DateTime.UtcNow.AddSeconds(refreshedCredentials.RefreshTokenExpiresInSeconds)
                         : existingConnection.RefreshTokenExpiresAtUtc);
             }
 
