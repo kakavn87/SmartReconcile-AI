@@ -57,7 +57,7 @@ public sealed class DatevExtfExporterTests
         var text = Decode(bytes);
 
         Assert.Contains("\"EXTF\";700;21;\"Buchungsstapel\";13;", text);
-        Assert.Contains(";1001;10001;20260101;4;20261101;20261130;"SmartReconcile 11.2026";", text);
+        Assert.Contains(";1001;10001;20260101;4;20261101;20261130;\"SmartReconcile 11.2026\";", text);
         Assert.Contains(";\"03\";", text);
         Assert.Contains("119,00;S;", text);
         Assert.Contains(";1360;8400;", text);
@@ -152,11 +152,8 @@ public sealed class DatevExtfExporterTests
         Assert.Contains("50,00;H;", text);
         Assert.Contains(";1360;8400;", text);
         Assert.Contains("Rückerstattung REFUND-1", text);
-        Assert.Contains("
-", text);
-        Assert.DoesNotContain("
-", text.Replace("
-", string.Empty, StringComparison.Ordinal));
+        Assert.Contains("\\r\\n", text);
+        Assert.DoesNotContain("\\n", text.Replace("\\r\\n", string.Empty, StringComparison.Ordinal));
     }
 
     [Fact]
