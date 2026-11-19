@@ -117,7 +117,7 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
                 settings.PaymentClearingAccount,
                 refund.PaidAtUtc,
                 refund.TransactionId,
-                $"Rückerstattung {refund.TransactionId}"));
+                $"Erstattung {order.OrderNumber}"));
         }
 
         foreach (var payment in selectedPayments.Where(x => x.FeeAmount > 0))
