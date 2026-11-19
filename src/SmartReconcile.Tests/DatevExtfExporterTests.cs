@@ -152,8 +152,8 @@ public sealed class DatevExtfExporterTests
         Assert.Contains("50,00;H;", text);
         Assert.Contains(";1360;8400;", text);
         Assert.Contains("Rückerstattung REFUND-1", text);
-        Assert.Contains("\\r\\n", text);
-        Assert.DoesNotContain("\\n", text.Replace("\\r\\n", string.Empty, StringComparison.Ordinal));
+        Assert.Contains("\r\n", text);
+        Assert.DoesNotContain("\n", text.Replace("\r\n", string.Empty, StringComparison.Ordinal));
     }
 
     [Fact]
