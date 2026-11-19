@@ -33,5 +33,5 @@ public sealed class InvoiceService(
     }
 
     private static InvoiceDto Map(Invoice x)
-        => new(x.Id, x.InvoiceType, x.OrderId, x.InvoiceNumber, x.SupplierName, x.CustomerName, x.Amount, x.Currency, x.InvoiceDateUtc, x.RawText);
+        => new(x.Id, x.InvoiceType, x.DocumentType, x.OrderId, x.OriginalInvoiceId, x.RefundId, x.ShopifyOrderId, x.InvoiceNumber, x.SupplierName, x.CustomerName, x.CustomerEmail, x.CustomerAddress, x.Amount, x.NetAmount, x.TaxRate, x.TaxType, x.TaxAmount, x.GrossAmount, x.Currency, x.InvoiceDateUtc, x.PdfGeneratedAtUtc, x.RawText);
 }

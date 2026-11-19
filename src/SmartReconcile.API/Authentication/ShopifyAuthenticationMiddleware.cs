@@ -55,7 +55,8 @@ public sealed class ShopifyAuthenticationMiddleware(
             || path.Equals("/api/auth/shopify/config")
             || path.StartsWithSegments("/api/integrations/shopify/install")
             || path.StartsWithSegments("/api/integrations/shopify/callback")
-            || path.StartsWithSegments("/api/webhooks/shopify");
+            || path.StartsWithSegments("/api/webhooks/shopify")
+            || path.StartsWithSegments("/public/invoices/shopify");
     }
 
     private static async Task WriteUnauthorizedAsync(HttpContext context, string message)

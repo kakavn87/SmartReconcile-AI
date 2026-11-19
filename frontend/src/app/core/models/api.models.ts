@@ -9,7 +9,9 @@ export interface Discrepancy { id:string; type:DiscrepancyType; status:Discrepan
 export interface Order { id:string; orderNumber:string; customerName:string; customerEmail:string; totalAmount:number; currency:string; status:OrderStatus; createdAtUtc:string; }
 export interface Payment { id:string; orderId:string; transactionId:string; amount:number; currency:string; status:PaymentStatus; kind:PaymentKind; gateway:string|null; paidAtUtc:string; }
 export type InvoiceType = 'Sales' | 'Purchase';
-export interface Invoice { id:string; invoiceType:InvoiceType; orderId:string|null; invoiceNumber:string; supplierName:string; customerName:string|null; amount:number; currency:string; invoiceDateUtc:string; rawText:string; }
+export type InvoiceDocumentType = 'Invoice' | 'Storno';
+export type InvoiceTaxType = 'Standard' | 'Reduced' | 'Exempt' | 'SmallBusiness' | 'ReverseCharge';
+export interface Invoice { id:string; invoiceType:InvoiceType; documentType:InvoiceDocumentType; orderId:string|null; originalInvoiceId:string|null; refundId:string|null; shopifyOrderId:string|null; invoiceNumber:string; supplierName:string; customerName:string|null; customerEmail:string|null; customerAddress:string|null; amount:number; netAmount:number; taxRate:number; taxType:InvoiceTaxType; taxAmount:number; grossAmount:number; currency:string; invoiceDateUtc:string; pdfGeneratedAtUtc:string|null; rawText:string; }
 export interface CreateInvoiceRequest { invoiceType:InvoiceType; invoiceNumber:string; partnerName:string; amount:number; currency:string; invoiceDateUtc:string|null; rawText:string; orderId:string|null; }
 export interface ReconciliationResult { createdCount:number; discrepancies:Discrepancy[]; }
 export interface AiAnalysisRequest { invoiceId?:string; rawText:string; }
@@ -124,6 +126,10 @@ export interface FinancialCaseDetail {
 
 
 export type ChartOfAccounts = 'SKR03' | 'SKR04';
+
+export interface InvoiceSettings { automaticInvoiceCreationEnabled:boolean; companyName:string; companyAddress:string; taxNumber:string; vatId:string; bankDetails:string; invoiceAccessTokenLast4:string|null; invoiceAccessTokenUpdatedAtUtc:string|null; }
+export interface UpdateInvoiceSettingsRequest { automaticInvoiceCreationEnabled:boolean; companyName:string; companyAddress:string; taxNumber:string; vatId:string; bankDetails:string; }
+export interface InvoiceAccessToken { token:string; tokenLast4:string; updatedAtUtc:string; liquidSnippet:string; }
 
 export interface AccountingSettings {
   id:string;

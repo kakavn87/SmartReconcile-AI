@@ -11,6 +11,7 @@ public sealed class ShopifySyncService(
     SmartReconcileDbContext db,
     IShopifyClient shopifyClient,
     IReconciliationService reconciliation,
+    InvoiceAutomationService invoiceAutomation,
     ILogger<ShopifySyncService> logger) : IShopifySyncService
 {
     public async Task<ShopifySyncResult> SyncAsync(Guid connectionId, CancellationToken cancellationToken)
@@ -81,6 +82,10 @@ public sealed class ShopifySyncService(
                 await db.Orders.AddAsync(order, cancellationToken);
                 importedOrders++;
             }
+
+            order.SetShopifyOrderId(source.ExternalOrderId);
+            if (status == OrderStatus.Paid)
+                await invoiceAutomation.EnsureSalesInvoiceAsync(connection.TenantId, source.ExternalOrderId, order, cancellationToken);
 
             foreach (var transaction in source.Transactions.Where(x => string.Equals(x.Status, "SUCCESS", StringComparison.OrdinalIgnoreCase) &&
                          (string.Equals(x.Kind, "SALE", StringComparison.OrdinalIgnoreCase) ||

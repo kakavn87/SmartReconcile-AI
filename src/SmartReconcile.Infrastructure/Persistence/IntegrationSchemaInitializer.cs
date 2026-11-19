@@ -28,6 +28,8 @@ public static class IntegrationSchemaInitializer
 
             ALTER TABLE "Orders" ADD COLUMN IF NOT EXISTS "TaxRate" numeric(5,2) NOT NULL DEFAULT 19;
             ALTER TABLE "Orders" ADD COLUMN IF NOT EXISTS "TenantId" uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001';
+            ALTER TABLE "Orders" ADD COLUMN IF NOT EXISTS "ShopifyOrderId" varchar(200) NULL;
+            CREATE INDEX IF NOT EXISTS "IX_Orders_TenantId_ShopifyOrderId" ON "Orders" ("TenantId", "ShopifyOrderId");
             UPDATE "Orders"
             SET "TenantId" = '00000000-0000-0000-0000-000000000001'
             WHERE "TenantId" IS NULL;
@@ -77,9 +79,27 @@ public static class IntegrationSchemaInitializer
             ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "OrderId" uuid NULL;
             ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "CustomerName" varchar(200) NULL;
             ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "Currency" varchar(3) NOT NULL DEFAULT 'EUR';
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "DocumentType" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "OriginalInvoiceId" uuid NULL;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "RefundId" varchar(200) NULL;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "ShopifyOrderId" varchar(200) NULL;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "CustomerEmail" varchar(320) NULL;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "CustomerAddress" varchar(1000) NULL;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "NetAmount" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "TaxRate" numeric(5,2) NOT NULL DEFAULT 19;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "TaxType" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "TaxAmount" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "GrossAmount" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "PdfContent" bytea NULL;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "PdfGeneratedAtUtc" timestamp with time zone NULL;
             CREATE INDEX IF NOT EXISTS "IX_Invoices_OrderId" ON "Invoices" ("OrderId");
             CREATE INDEX IF NOT EXISTS "IX_Invoices_TenantId" ON "Invoices" ("TenantId");
-            CREATE INDEX IF NOT EXISTS "IX_Invoices_TenantId_InvoiceNumber" ON "Invoices" ("TenantId", "InvoiceNumber");
+            DROP INDEX IF EXISTS "IX_Invoices_TenantId_InvoiceNumber";
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_Invoices_TenantId_InvoiceNumber" ON "Invoices" ("TenantId", "InvoiceNumber");
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_Invoices_TenantId_RefundId" ON "Invoices" ("TenantId", "RefundId") WHERE "RefundId" IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS "IX_Invoices_TenantId_ShopifyOrderId" ON "Invoices" ("TenantId", "ShopifyOrderId");
+            ALTER TABLE "Invoices" DROP CONSTRAINT IF EXISTS "FK_Invoices_OriginalInvoice";
+            ALTER TABLE "Invoices" ADD CONSTRAINT "FK_Invoices_OriginalInvoice" FOREIGN KEY ("OriginalInvoiceId") REFERENCES "Invoices" ("Id") ON DELETE RESTRICT;
             ALTER TABLE "Invoices" DROP CONSTRAINT IF EXISTS "FK_Invoices_Orders_OrderId";
             ALTER TABLE "Invoices" ADD CONSTRAINT "FK_Invoices_Orders_OrderId"
                 FOREIGN KEY ("OrderId") REFERENCES "Orders" ("Id") ON DELETE SET NULL;
@@ -168,9 +188,21 @@ public static class IntegrationSchemaInitializer
                 "PaymentClearingAccount" varchar(8) NOT NULL DEFAULT '1360',
                 "FeeAccount" varchar(8) NOT NULL DEFAULT '4970',
                 "UpdatedAtUtc" timestamp with time zone NOT NULL,
+                "AutomaticInvoiceCreationEnabled" boolean NOT NULL DEFAULT TRUE,
+                "CompanyName" varchar(200) NOT NULL DEFAULT '',
+                "CompanyAddress" varchar(1000) NOT NULL DEFAULT '',
+                "TaxNumber" varchar(100) NOT NULL DEFAULT '',
+                "VatId" varchar(100) NOT NULL DEFAULT '',
+                "BankDetails" varchar(1000) NOT NULL DEFAULT '',
                 CONSTRAINT "FK_AccountingSettings_Tenants_TenantId"
                     FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE
             );
+            ALTER TABLE "AccountingSettings" ADD COLUMN IF NOT EXISTS "AutomaticInvoiceCreationEnabled" boolean NOT NULL DEFAULT TRUE;
+            ALTER TABLE "AccountingSettings" ADD COLUMN IF NOT EXISTS "CompanyName" varchar(200) NOT NULL DEFAULT '';
+            ALTER TABLE "AccountingSettings" ADD COLUMN IF NOT EXISTS "CompanyAddress" varchar(1000) NOT NULL DEFAULT '';
+            ALTER TABLE "AccountingSettings" ADD COLUMN IF NOT EXISTS "TaxNumber" varchar(100) NOT NULL DEFAULT '';
+            ALTER TABLE "AccountingSettings" ADD COLUMN IF NOT EXISTS "VatId" varchar(100) NOT NULL DEFAULT '';
+            ALTER TABLE "AccountingSettings" ADD COLUMN IF NOT EXISTS "BankDetails" varchar(1000) NOT NULL DEFAULT '';
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_AccountingSettings_TenantId"
                 ON "AccountingSettings" ("TenantId");
 
@@ -202,6 +234,10 @@ public static class IntegrationSchemaInitializer
             ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "Scopes" varchar(1000) NOT NULL DEFAULT '';
             ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "LastSyncAtUtc" timestamp with time zone NULL;
             ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "LastWebhookAtUtc" timestamp with time zone NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "InvoiceAccessTokenHash" varchar(64) NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "InvoiceAccessTokenLast4" varchar(4) NULL;
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "InvoiceAccessTokenUpdatedAtUtc" timestamp with time zone NULL;
+            CREATE INDEX IF NOT EXISTS "IX_IntegrationConnections_InvoiceAccessTokenHash" ON "IntegrationConnections" ("InvoiceAccessTokenHash");
             CREATE INDEX IF NOT EXISTS "IX_IntegrationConnections_TenantId_Provider_ShopDomain"
                 ON "IntegrationConnections" ("TenantId", "Provider", "ShopDomain");
 
@@ -284,6 +320,15 @@ public static class IntegrationSchemaInitializer
             );
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_WebhookEvents_ConnectionId_ExternalEventId"
                 ON "WebhookEvents" ("ConnectionId", "ExternalEventId");
+
+            CREATE TABLE IF NOT EXISTS "InvoiceSequences" (
+                "TenantId" uuid NOT NULL,
+                "Year" integer NOT NULL,
+                "DocumentPrefix" varchar(2) NOT NULL,
+                "NextNumber" integer NOT NULL,
+                PRIMARY KEY ("TenantId", "Year", "DocumentPrefix"),
+                CONSTRAINT "FK_InvoiceSequences_Tenants_TenantId" FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE
+            );
             """, cancellationToken);
     }
 }

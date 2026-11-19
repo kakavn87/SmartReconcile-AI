@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { AccountingSettingsStore } from '../../core/stores/accounting-settings.store';
-import { ChartOfAccounts, UpdateAccountingSettingsRequest } from '../../core/models/api.models';
+import { ChartOfAccounts, UpdateAccountingSettingsRequest, InvoiceSettings, UpdateInvoiceSettingsRequest } from '../../core/models/api.models';
+import { ApiService } from '../../core/api/api.service';
 
 @Component({
   standalone:true,
@@ -24,6 +25,42 @@ import { ChartOfAccounts, UpdateAccountingSettingsRequest } from '../../core/mod
 
     @if (store.error()) {
       <div class="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{{store.error()}}</div>
+    }
+
+    @if (invoiceSettings()) {
+      <section class="app-card mb-6 p-6">
+        <div class="mb-5">
+          <div class="text-xs font-extrabold uppercase tracking-wide text-slate-400">Rechnungen</div>
+          <h2 class="mt-1 text-lg font-extrabold text-slate-950">Automatische Rechnungen &amp; Shopify-PDF</h2>
+          <p class="mt-1 text-sm text-slate-500">Erzeugt Ausgangsrechnungen bei Paid-Orders und stellt einen geschützten PDF-Link für Shopify-Bestellbestätigungen bereit.</p>
+        </div>
+        <div class="grid gap-5 md:grid-cols-2">
+          <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:col-span-2">
+            <input type="checkbox" [checked]="invoiceDraft().automaticInvoiceCreationEnabled" (change)="setInvoiceField('automaticInvoiceCreationEnabled',$any($event.target).checked)" class="mt-0.5 h-4 w-4 rounded border-slate-300" />
+            <span><span class="block text-sm font-extrabold text-slate-800">Ausgangsrechnungen automatisch erzeugen</span><span class="mt-1 block text-xs leading-5 text-slate-500">Paid + Refund Webhooks werden idempotent verarbeitet.</span></span>
+          </label>
+          <label class="block"><span class="text-xs font-extrabold uppercase tracking-wide text-slate-500">Firmenname</span><input [value]="invoiceDraft().companyName" (input)="setInvoiceField('companyName',$any($event.target).value)" class="settings-input" /></label>
+          <label class="block"><span class="text-xs font-extrabold uppercase tracking-wide text-slate-500">Firmenanschrift</span><textarea [value]="invoiceDraft().companyAddress" (input)="setInvoiceField('companyAddress',$any($event.target).value)" class="settings-input min-h-20"></textarea></label>
+          <label class="block"><span class="text-xs font-extrabold uppercase tracking-wide text-slate-500">Steuernummer</span><input [value]="invoiceDraft().taxNumber" (input)="setInvoiceField('taxNumber',$any($event.target).value)" class="settings-input" /></label>
+          <label class="block"><span class="text-xs font-extrabold uppercase tracking-wide text-slate-500">USt-IdNr.</span><input [value]="invoiceDraft().vatId" (input)="setInvoiceField('vatId',$any($event.target).value)" class="settings-input" /></label>
+          <label class="block md:col-span-2"><span class="text-xs font-extrabold uppercase tracking-wide text-slate-500">Bankverbindung</span><textarea [value]="invoiceDraft().bankDetails" (input)="setInvoiceField('bankDetails',$any($event.target).value)" class="settings-input min-h-20"></textarea></label>
+        </div>
+        <div class="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <div class="text-xs text-slate-500">PDF-Token: @if(invoiceSettings()?.invoiceAccessTokenLast4){••••{{invoiceSettings()!.invoiceAccessTokenLast4}}} @else {noch nicht erzeugt}</div>
+          <div class="flex gap-2">
+            <button type="button" [disabled]="invoiceSaving()" (click)="saveInvoiceSettings()" class="app-button bg-slate-950 text-white">{{invoiceSaving() ? 'Wird gespeichert …' : 'Rechnungseinstellungen speichern'}}</button>
+            <button type="button" (click)="rotateToken()" class="app-button border border-slate-200 bg-white text-slate-800">Token rotieren</button>
+          </div>
+        </div>
+        @if(accessToken()) {
+          <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <div class="text-xs font-extrabold uppercase tracking-wide text-amber-700">Nur einmal anzeigen</div>
+            <div class="mt-2 break-all font-mono text-xs text-amber-950">{{accessToken()}}</div>
+            <textarea readonly [value]="liquidSnippet()" class="settings-input mt-3 min-h-24"></textarea>
+            <button type="button" (click)="copyLiquid()" class="mt-2 app-button border border-amber-300 bg-white text-amber-900">Liquid-Code kopieren</button>
+          </div>
+        }
+      </section>
     }
 
     @if (store.loading()) {
@@ -162,6 +199,13 @@ import { ChartOfAccounts, UpdateAccountingSettingsRequest } from '../../core/mod
 })
 export class SettingsPage {
   readonly store=inject(AccountingSettingsStore);
+  readonly api=inject(ApiService);
+  readonly invoiceSettings=signal<InvoiceSettings|null>(null);
+  readonly invoiceDraft=signal<UpdateInvoiceSettingsRequest>({automaticInvoiceCreationEnabled:true,companyName:'',companyAddress:'',taxNumber:'',vatId:'',bankDetails:''});
+  readonly invoiceSaving=signal(false);
+  readonly accessToken=signal<string|null>(null);
+  readonly liquidSnippet=signal('');
+
   readonly draft=signal<UpdateAccountingSettingsRequest>({
     beraternummer:'1001',
     mandantennummer:'10001',
@@ -191,6 +235,7 @@ export class SettingsPage {
       }
     });
     this.store.load();
+    this.api.invoiceSettings().subscribe(data => { this.invoiceSettings.set(data); this.invoiceDraft.set({automaticInvoiceCreationEnabled:data.automaticInvoiceCreationEnabled,companyName:data.companyName,companyAddress:data.companyAddress,taxNumber:data.taxNumber,vatId:data.vatId,bankDetails:data.bankDetails}); });
   }
 
   setField(field:keyof UpdateAccountingSettingsRequest,value:string):void {
@@ -205,6 +250,10 @@ export class SettingsPage {
   }
 
   save():void { this.store.save(this.draft()); }
+  setInvoiceField(field:keyof UpdateInvoiceSettingsRequest,value:any):void { this.invoiceDraft.update(current => ({...current,[field]:value})); }
+  saveInvoiceSettings():void { this.invoiceSaving.set(true); this.api.updateInvoiceSettings(this.invoiceDraft()).subscribe({next:data=>{this.invoiceSettings.set(data);this.invoiceSaving.set(false);},error:()=>this.invoiceSaving.set(false)}); }
+  rotateToken():void { this.api.rotateInvoiceAccessToken().subscribe(data=>{this.accessToken.set(data.token);this.liquidSnippet.set(data.liquidSnippet);this.invoiceSettings.update(x=>x?{...x,invoiceAccessTokenLast4:data.tokenLast4,invoiceAccessTokenUpdatedAtUtc:data.updatedAtUtc}:x);}); }
+  copyLiquid():void { navigator.clipboard?.writeText(this.liquidSnippet()); }
 
   exportDatev():void {
     this.store.exportDatev({from:this.fromDate(),to:this.toDate(),onlyReconciled:this.onlyReconciled()});

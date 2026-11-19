@@ -16,6 +16,12 @@ public sealed class AccountingSettings
     public string PaymentClearingAccount { get; private set; } = "1360";
     public string FeeAccount { get; private set; } = "4970";
     public DateTime UpdatedAtUtc { get; private set; }
+    public bool AutomaticInvoiceCreationEnabled { get; private set; } = true;
+    public string CompanyName { get; private set; } = string.Empty;
+    public string CompanyAddress { get; private set; } = string.Empty;
+    public string TaxNumber { get; private set; } = string.Empty;
+    public string VatId { get; private set; } = string.Empty;
+    public string BankDetails { get; private set; } = string.Empty;
 
     public static AccountingSettings CreateDefault(Guid tenantId)
     {
@@ -53,6 +59,17 @@ public sealed class AccountingSettings
         RevenueAccount7 = revenueAccount7.Trim();
         PaymentClearingAccount = paymentClearingAccount.Trim();
         FeeAccount = feeAccount.Trim();
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void UpdateInvoiceSettings(bool automaticInvoiceCreationEnabled, string companyName, string companyAddress, string taxNumber, string vatId, string bankDetails)
+    {
+        AutomaticInvoiceCreationEnabled = automaticInvoiceCreationEnabled;
+        CompanyName = companyName?.Trim() ?? string.Empty;
+        CompanyAddress = companyAddress?.Trim() ?? string.Empty;
+        TaxNumber = taxNumber?.Trim() ?? string.Empty;
+        VatId = vatId?.Trim() ?? string.Empty;
+        BankDetails = bankDetails?.Trim() ?? string.Empty;
         UpdatedAtUtc = DateTime.UtcNow;
     }
 

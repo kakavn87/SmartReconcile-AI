@@ -15,6 +15,7 @@ public sealed class ShopifyWebhookService(
     IOptions<ShopifyOptions> options,
     SmartReconcileDbContext db,
     IReconciliationService reconciliation,
+    InvoiceAutomationService invoiceAutomation,
     ILogger<ShopifyWebhookService> logger) : IShopifyWebhookService
 {
     private readonly ShopifyOptions options = options.Value;
@@ -63,7 +64,19 @@ public sealed class ShopifyWebhookService(
 
         connection.MarkWebhookReceived();
         db.WebhookEvents.Add(webhook);
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            var alreadyStored = await db.WebhookEvents.AnyAsync(
+                x => x.ConnectionId == connection.Id && x.ExternalEventId == webhookId,
+                cancellationToken);
+            if (alreadyStored)
+                return new ShopifyWebhookResult(Guid.Empty, true, true, eventType, normalizedShopDomain);
+            throw;
+        }
 
         return new ShopifyWebhookResult(
             webhook.Id,
@@ -308,6 +321,7 @@ public sealed class ShopifyWebhookService(
                 : "EUR";
 
             order = Order.Create(orderNumber, customerName, email, amount, status, createdAt, currency: currency, tenantId: tenantId);
+            order.SetShopifyOrderId(externalId);
             await db.Orders.AddAsync(order, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
         }
@@ -332,6 +346,7 @@ public sealed class ShopifyWebhookService(
                 : order.CreatedAtUtc;
 
             order.UpdateFromShopify(amount, currency, status, createdAt);
+            order.SetShopifyOrderId(externalId);
         }
 
         if (!root.TryGetProperty("transactions", out var transactions) ||
@@ -380,6 +395,9 @@ public sealed class ShopifyWebhookService(
                     gateway: gateway),
                 cancellationToken);
         }
+
+        if (order.Status == OrderStatus.Paid)
+            await invoiceAutomation.EnsureSalesInvoiceAsync(tenantId, externalId, order, cancellationToken);
     }
 
     private async Task CancelOrderAsync(Guid connectionId, string rawBody, CancellationToken cancellationToken)
@@ -517,7 +535,11 @@ public sealed class ShopifyWebhookService(
                     kind: PaymentKind.Refund,
                     gateway: gateway),
                 cancellationToken);
+
+            await invoiceAutomation.EnsureStornoInvoiceAsync(tenantId, order, refundId.ToString(), amount, currency, createdAt, cancellationToken);
         }
+
+        await invoiceAutomation.EnsureSalesInvoiceAsync(tenantId, order.ShopifyOrderId ?? order.OrderNumber, order, cancellationToken);
 
         var successfulRefundAmount = await db.Payments
             .Where(x => x.TenantId == tenantId && x.OrderId == order.Id && x.Kind == PaymentKind.Refund && x.Status == PaymentStatus.Refunded)
@@ -540,6 +562,19 @@ public sealed class ShopifyWebhookService(
         string shopifyOrderId,
         CancellationToken cancellationToken)
     {
+        var tenantIdDirect = await db.IntegrationConnections
+            .Where(x => x.Id == connectionId)
+            .Select(x => x.TenantId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (tenantIdDirect == Guid.Empty)
+            return null;
+
+        var direct = await db.Orders.FirstOrDefaultAsync(
+            x => x.TenantId == tenantIdDirect && x.ShopifyOrderId == shopifyOrderId,
+            cancellationToken);
+        if (direct is not null)
+            return direct;
+
         var events = await db.WebhookEvents
             .Where(x => x.ConnectionId == connectionId &&
                         (x.EventType == "orders/create" ||

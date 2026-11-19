@@ -1,13 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using SmartReconcile.API.Authentication;
 using SmartReconcile.Application.Abstractions;
 using SmartReconcile.Application.DTOs;
+using SmartReconcile.Infrastructure.Persistence;
+using SmartReconcile.Infrastructure.Services;
 
 namespace SmartReconcile.API.Controllers;
 
 [ApiController]
 [Route("api/invoices")]
-public sealed class InvoicesController(IInvoiceService service, IAiAnalysisService ai) : ControllerBase
+public sealed class InvoicesController(IInvoiceService service, IAiAnalysisService ai, SmartReconcileDbContext db, InvoiceNumberService numbers, InvoicePdfService pdf) : ControllerBase
 {
     [HttpGet] public async Task<ActionResult<IReadOnlyList<InvoiceDto>>> Get(CancellationToken ct)
     {
@@ -26,9 +29,23 @@ public sealed class InvoicesController(IInvoiceService service, IAiAnalysisServi
     {
         var tenant = ShopifyAuthenticationContext.GetTenant(HttpContext);
         if (tenant is null) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(request.InvoiceNumber) && request.InvoiceType == SmartReconcile.Domain.Enums.InvoiceType.Sales)
+            request = request with { InvoiceNumber = await numbers.NextAsync(tenant.Id, DateTime.UtcNow.Year, "RE", ct) };
+        if (request.InvoiceDateUtc is null)
+            request = request with { InvoiceDateUtc = DateTime.UtcNow };
         var result = await service.CreateAsync(tenant.Id, request, ct);
-        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+        var entity = await db.Invoices.FirstAsync(x => x.Id == result.Id && x.TenantId == tenant.Id, ct);
+        if (entity.PdfContent is null)
+        {
+            var settings = await db.AccountingSettings.FirstOrDefaultAsync(x => x.TenantId == tenant.Id, ct);
+            entity.AttachPdf(pdf.Generate(entity, settings ?? SmartReconcile.Domain.Entities.AccountingSettings.CreateDefault(tenant.Id)));
+            await db.SaveChangesAsync(ct);
+        }
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, Map(entity));
     }
+
+    private static InvoiceDto Map(SmartReconcile.Domain.Entities.Invoice x)
+        => new(x.Id, x.InvoiceType, x.DocumentType, x.OrderId, x.OriginalInvoiceId, x.RefundId, x.ShopifyOrderId, x.InvoiceNumber, x.SupplierName, x.CustomerName, x.CustomerEmail, x.CustomerAddress, x.Amount, x.NetAmount, x.TaxRate, x.TaxType, x.TaxAmount, x.GrossAmount, x.Currency, x.InvoiceDateUtc, x.PdfGeneratedAtUtc, x.RawText);
 
     [HttpPost("analyze")]
     public Task<AiAnalysisResponse> Analyze(AiAnalysisRequest request, CancellationToken ct) => ai.AnalyzeInvoiceAsync(request, ct);
