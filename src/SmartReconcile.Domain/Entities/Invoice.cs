@@ -57,7 +57,7 @@ public sealed class Invoice
             throw new ArgumentException("A Stornorechnung requires the original invoice.", nameof(originalInvoiceId));
         if (taxRate < 0m || taxRate > 100m) throw new ArgumentOutOfRangeException(nameof(taxRate));
 
-        var gross = decimal.Round(Math.Abs(amount), 2);
+        var gross = decimal.Round(Math.Abs(amount), 2) * (documentType == InvoiceDocumentType.Storno ? -1m : 1m);
         var net = taxRate == 0m ? gross : decimal.Round(gross / (1m + taxRate / 100m), 2);
         var tax = decimal.Round(gross - net, 2);
 
