@@ -18,7 +18,7 @@ import { ShopifyBridgeService } from '../../core/shopify/shopify-bridge.service'
             Shopify ist im Embedded-Modus direkt mit dem aktuell geöffneten Shop verbunden.
           </p>
         </div>
-        <button type="button" (click)="load()" [disabled]="loading()"
+        <button type="button" (click)="refresh()" [disabled]="loading() || syncingId() !== null"
           class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50">
           Aktualisieren
         </button>
@@ -169,7 +169,7 @@ export class IntegrationenPage {
         this.shopDomain.set(session.shopDomain);
         this.api.currentTenantIntegrationConnections().subscribe({
           next: items => {
-            const shopifyConnections = items.filter(x => x.provider === 'Shopify');
+            const shopifyConnections = items.filter(x => String(x.provider).toLowerCase() === 'shopify' || Number(x.provider) === 1);
             this.connections.set(shopifyConnections);
             this.loading.set(false);
           },
@@ -184,6 +184,15 @@ export class IntegrationenPage {
         this.error.set('ShopifySession konnte nicht authentifiziert werden.');
       }
     });
+  }
+
+  refresh() {
+    const connection = this.currentConnection();
+    if (connection) {
+      this.sync(connection);
+      return;
+    }
+    this.load();
   }
 
   sync(connection: IntegrationConnection) {
