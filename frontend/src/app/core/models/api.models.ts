@@ -99,7 +99,7 @@ export interface FinancialGraphNode {
 export interface RootCauseAnalysis {
   analysis:string|null;
   recommendedAction:string|null;
-  analyzed:boolean;
+  isAvailable:boolean;
   isFallback:boolean;
 }
 
