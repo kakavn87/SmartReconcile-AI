@@ -100,7 +100,7 @@ public sealed class ControlTowerService(
             ? await discrepancies.GetByIdAsync(item.DiscrepancyId.Value, tenantId, cancellationToken)
             : null;
 
-        var graphNodes = await BuildGraphNodesAsync(tenantId, discrepancy, links, cancellationToken);
+        var graphNodes = await BuildGraphNodesAsync(tenantId, item, discrepancy, links, cancellationToken);
 
         var analysis = discrepancy?.AiAnalysis ?? item.RootCause;
         var recommendedAction = timeline
@@ -423,41 +423,55 @@ public sealed class ControlTowerService(
 
     private async Task<List<FinancialGraphNodeDto>> BuildGraphNodesAsync(
         Guid tenantId,
+        FinancialCase financialCase,
         Discrepancy? discrepancy,
         IReadOnlyList<FinancialCaseLink> links,
         CancellationToken cancellationToken)
     {
-        var orderId = discrepancy?.OrderId ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Order)?.EntityId;
-        var paymentId = discrepancy?.PaymentId ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Payment)?.EntityId;
-        var invoiceId = discrepancy?.InvoiceId ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Invoice)?.EntityId;
+        // Resolve the strongest available reference first. A legacy case may have only
+        // a Payment link while the Discrepancy.OrderId is null.
+        var orderId = discrepancy?.OrderId
+            ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Order)?.EntityId;
+        var paymentId = discrepancy?.PaymentId
+            ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Payment)?.EntityId;
+        var invoiceId = discrepancy?.InvoiceId
+            ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Invoice)?.EntityId;
 
         var payment = paymentId.HasValue
             ? await payments.GetByIdAsync(paymentId.Value, tenantId, cancellationToken)
             : null;
 
-        // A payment is the strongest source for the order relationship. This repairs
-        // legacy cases where PaymentId survived but OrderId was not persisted.
-        if (payment is not null && !orderId.HasValue)
+        // Payment.OrderId is authoritative. This is required for duplicate-payment
+        // cases where the FinancialCase persisted only the PaymentId.
+        if (payment is not null)
             orderId = payment.OrderId;
 
         var order = orderId.HasValue
             ? await orders.GetByIdAsync(orderId.Value, tenantId, cancellationToken)
             : null;
 
-        // Legacy discrepancies may have neither persisted reference. Recover the order
-        // from the existing discrepancy text before resolving its payment.
-        if (order is null && discrepancy is not null)
+        // Recover an order from the existing discrepancy/case text for legacy records
+        // that have neither a usable OrderId nor a resolvable Payment link.
+        if (order is null)
         {
+            var searchTexts = new[]
+            {
+                discrepancy?.Description,
+                discrepancy?.Title,
+                financialCase.Description,
+                financialCase.Title
+            }.Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+
             var allOrders = await orders.GetAllAsync(tenantId, cancellationToken);
             order = allOrders.FirstOrDefault(x =>
-                (!string.IsNullOrWhiteSpace(x.OrderNumber) && discrepancy.Description.Contains(x.OrderNumber, StringComparison.OrdinalIgnoreCase))
-                || (!string.IsNullOrWhiteSpace(x.OrderNumber) && discrepancy.Title.Contains(x.OrderNumber, StringComparison.OrdinalIgnoreCase)));
+                !string.IsNullOrWhiteSpace(x.OrderNumber) &&
+                searchTexts.Any(text => text!.Contains(x.OrderNumber, StringComparison.OrdinalIgnoreCase)));
 
             orderId = order?.Id;
         }
 
-        // If the order is known but PaymentId is missing, resolve the real payment
-        // belonging to that order instead of rendering a false missing payment.
+        // If Order is known but PaymentId is missing, resolve the real payment for
+        // that order. If PaymentId exists, the lookup above remains authoritative.
         if (payment is null && orderId.HasValue)
         {
             payment = await payments.GetForOrderAsync(orderId.Value, tenantId, cancellationToken);
@@ -513,7 +527,14 @@ public sealed class ControlTowerService(
         IReadOnlyList<FinancialCaseLink> links,
         CancellationToken cancellationToken)
     {
-        var nodes = await BuildGraphNodesAsync(tenantId, discrepancy, links, cancellationToken);
+        var nodes = await BuildGraphNodesAsync(
+            tenantId,
+            discrepancy is null
+                ? FinancialCase.Create(tenantId, null, FinancialCaseSeverity.Low, "AI-Kontext", string.Empty, 0m)
+                : FinancialCase.Create(tenantId, discrepancy.Id, FinancialCaseSeverity.Low, discrepancy.Title, discrepancy.Description, discrepancy.AffectedAmount),
+            discrepancy,
+            links,
+            cancellationToken);
         return string.Join(
             " | ",
             nodes.Select(x =>
