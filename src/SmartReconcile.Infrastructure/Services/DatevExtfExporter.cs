@@ -93,6 +93,7 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
                 order.TotalAmount,
                 revenueAccount,
                 settings.PaymentClearingAccount,
+                order.Currency,
                 order.CreatedAtUtc,
                 order.OrderNumber,
                 $"E-Commerce Umsatz {order.OrderNumber}"));
@@ -115,6 +116,7 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
                 refund.Amount,
                 revenueAccount,
                 settings.PaymentClearingAccount,
+                refund.Currency,
                 refund.PaidAtUtc,
                 refund.TransactionId,
                 $"Erstattung {order.OrderNumber}"));
@@ -126,6 +128,7 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
                 payment.FeeAmount,
                 settings.FeeAccount,
                 settings.PaymentClearingAccount,
+                payment.Currency,
                 payment.PaidAtUtc,
                 payment.TransactionId,
                 $"Zahlungsgebühr {payment.TransactionId}"));
@@ -189,7 +192,8 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
 
         fields[0] = FormatAmount(booking.Amount);
         fields[1] = booking.Debit ? "S" : "H";
-        fields[2] = Quote("");
+        fields[2] = Quote(booking.Currency);
+        fields[3] = "1,0000";
         fields[6] = booking.Account;
         fields[7] = booking.CounterAccount;
         fields[8] = Quote("");
@@ -219,6 +223,7 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
         bool Debit,
         string Account,
         string CounterAccount,
+        string Currency,
         DateTime DocumentDate,
         string DocumentReference,
         string Text)
@@ -227,32 +232,35 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
             decimal amount,
             string revenueAccount,
             string clearingAccount,
+            string currency,
             DateTime date,
             string reference,
             string text)
             // DATEV convention used here: clearing/receivable account in Konto,
             // revenue account in Gegenkonto, Konto is debited.
-            => new(amount, true, clearingAccount, revenueAccount, date, reference, text);
+            => new(amount, true, clearingAccount, revenueAccount, currency, date, reference, text);
 
         public static DatevBooking Refund(
             decimal amount,
             string revenueAccount,
             string clearingAccount,
+            string currency,
             DateTime date,
             string reference,
             string text)
             // Reverse the original posting: clearing/receivable account in Konto,
             // revenue account in Gegenkonto, Konto is credited.
-            => new(amount, false, clearingAccount, revenueAccount, date, reference, text);
+            => new(amount, false, clearingAccount, revenueAccount, currency, date, reference, text);
 
         public static DatevBooking Fee(
             decimal amount,
             string feeAccount,
             string clearingAccount,
+            string currency,
             DateTime date,
             string reference,
             string text)
             // Fee expense is debited against the clearing account.
-            => new(amount, true, feeAccount, clearingAccount, date, reference, text);
+            => new(amount, true, feeAccount, clearingAccount, currency, date, reference, text);
     }
 }

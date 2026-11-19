@@ -173,7 +173,7 @@ export class SettingsPage {
   });
   readonly fromDate=signal(this.monthStart());
   readonly toDate=signal(this.monthEnd());
-  readonly onlyReconciled=signal(true);
+  readonly onlyReconciled=signal(false);
 
   constructor(){
     effect(() => {
