@@ -550,6 +550,19 @@ public sealed class ShopifyWebhookService(
         string shopifyOrderId,
         CancellationToken cancellationToken)
     {
+        var tenantIdDirect = await db.IntegrationConnections
+            .Where(x => x.Id == connectionId)
+            .Select(x => x.TenantId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (tenantIdDirect == Guid.Empty)
+            return null;
+
+        var direct = await db.Orders.FirstOrDefaultAsync(
+            x => x.TenantId == tenantIdDirect && x.ShopifyOrderId == shopifyOrderId,
+            cancellationToken);
+        if (direct is not null)
+            return direct;
+
         var events = await db.WebhookEvents
             .Where(x => x.ConnectionId == connectionId &&
                         (x.EventType == "orders/create" ||
