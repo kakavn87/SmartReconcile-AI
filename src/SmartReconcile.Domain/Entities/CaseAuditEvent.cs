@@ -28,4 +28,13 @@ public sealed class CaseAuditEvent
             CreatedAtUtc = DateTime.UtcNow
         };
     }
+
+    public bool NormalizeLegacyEventType()
+    {
+        if ((int)EventType != 0)
+            return false;
+
+        EventType = CaseAuditEventType.Detected;
+        return true;
+    }
 }
