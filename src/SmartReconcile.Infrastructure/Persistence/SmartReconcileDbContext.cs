@@ -31,7 +31,7 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
             e.Property(x => x.OrderNumber).HasMaxLength(50).IsRequired();
             e.Property(x => x.CustomerName).HasMaxLength(200).IsRequired();
             e.Property(x => x.CustomerEmail).HasMaxLength(320).IsRequired();
-            e.HasOne(x => x.Payment).WithOne(x => x.Order).HasForeignKey<Payment>(x => x.OrderId).OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.Payments).WithOne(x => x.Order).HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Payment>(e =>
@@ -41,6 +41,9 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
             e.HasIndex(x => x.TenantId);
             e.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
             e.Property(x => x.Amount).HasPrecision(18, 2);
+            e.Property(x => x.FeeAmount).HasPrecision(18, 2);
+            e.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            e.Property(x => x.Gateway).HasMaxLength(200);
         });
 
         modelBuilder.Entity<Invoice>(e =>
@@ -81,6 +84,7 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
             e.Property(x => x.DisplayName).HasMaxLength(200).IsRequired();
             e.Property(x => x.ApiKeyHash).HasMaxLength(64);
             e.Property(x => x.ShopDomain).HasMaxLength(255);
+            e.Property(x => x.ShopCurrency).HasMaxLength(3).IsRequired();
             e.Property(x => x.EncryptedAccessToken).HasColumnType("text");
             e.Property(x => x.EncryptedRefreshToken).HasColumnType("text");
             e.Property(x => x.Scopes).HasMaxLength(1000).IsRequired();

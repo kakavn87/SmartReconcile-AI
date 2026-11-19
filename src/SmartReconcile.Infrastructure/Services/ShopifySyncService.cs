@@ -22,6 +22,7 @@ public sealed class ShopifySyncService(
             throw new InvalidOperationException("Die Verbindung ist keine Shopify-Verbindung.");
 
         var orders = await shopifyClient.GetLatestOrdersAsync(connection, cancellationToken);
+        connection.SetShopCurrency(orders.FirstOrDefault()?.ShopCurrency ?? connection.ShopCurrency);
         logger.LogInformation(
             "Shopify order sync started for connection {ConnectionId}: received {OrderCount} orders",
             connectionId,
@@ -81,27 +82,50 @@ public sealed class ShopifySyncService(
                 importedOrders++;
             }
 
-            foreach (var transaction in source.Transactions.Where(x =>
-                         string.Equals(x.Status, "SUCCESS", StringComparison.OrdinalIgnoreCase) &&
+            foreach (var transaction in source.Transactions.Where(x => string.Equals(x.Status, "SUCCESS", StringComparison.OrdinalIgnoreCase) &&
                          (string.Equals(x.Kind, "SALE", StringComparison.OrdinalIgnoreCase) ||
-                          string.Equals(x.Kind, "CAPTURE", StringComparison.OrdinalIgnoreCase))))
+                          string.Equals(x.Kind, "CAPTURE", StringComparison.OrdinalIgnoreCase) ||
+                          string.Equals(x.Kind, "REFUND", StringComparison.OrdinalIgnoreCase))))
             {
                 var transactionId = $"SHOPIFY-{transaction.ExternalTransactionId}";
-                if (await db.Payments.AnyAsync(
-                        x => x.TenantId == connection.TenantId && x.TransactionId == transactionId,
-                        cancellationToken))
-                    continue;
+                var kind = string.Equals(transaction.Kind, "REFUND", StringComparison.OrdinalIgnoreCase)
+                    ? PaymentKind.Refund
+                    : string.Equals(transaction.Kind, "CAPTURE", StringComparison.OrdinalIgnoreCase)
+                        ? PaymentKind.Capture
+                        : PaymentKind.Sale;
+                var transactionStatus = kind == PaymentKind.Refund ? PaymentStatus.Refunded : PaymentStatus.Succeeded;
+                var paidAt = transaction.CreatedAtUtc == default ? DateTime.UtcNow : transaction.CreatedAtUtc;
+                var payment = await db.Payments.FirstOrDefaultAsync(
+                    x => x.TenantId == connection.TenantId && x.TransactionId == transactionId,
+                    cancellationToken);
 
-                var payment = Payment.Create(
-                    connection.TenantId,
-                    order.Id,
-                    transactionId,
-                    transaction.Amount,
-                    PaymentStatus.Succeeded,
-                    transaction.CreatedAtUtc == default ? DateTime.UtcNow : transaction.CreatedAtUtc);
-
-                await db.Payments.AddAsync(payment, cancellationToken);
-                importedPayments++;
+                if (payment is null)
+                {
+                    payment = Payment.Create(
+                        connection.TenantId,
+                        order.Id,
+                        transactionId,
+                        transaction.Amount,
+                        transactionStatus,
+                        paidAt,
+                        transaction.FeeAmount,
+                        transaction.Currency,
+                        kind,
+                        transaction.Gateway);
+                    await db.Payments.AddAsync(payment, cancellationToken);
+                    importedPayments++;
+                }
+                else
+                {
+                    payment.UpdateFromShopify(
+                        transaction.Amount,
+                        transaction.Currency,
+                        transactionStatus,
+                        paidAt,
+                        kind,
+                        transaction.Gateway,
+                        transaction.FeeAmount);
+                }
             }
         }
 

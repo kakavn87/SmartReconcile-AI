@@ -360,6 +360,8 @@ public sealed class ShopifyWebhookService(
                 continue;
 
             var transactionAmount = ParseDecimal(transaction, "amount");
+            var gateway = transaction.TryGetProperty("gateway", out var gatewayProperty) ? gatewayProperty.GetString() : null;
+            var currency = root.TryGetProperty("currency", out var currencyProperty) ? currencyProperty.GetString() ?? "EUR" : "EUR";
             var paidAt = transaction.TryGetProperty("created_at", out var txCreated) &&
                          DateTime.TryParse(txCreated.GetString(), out var parsedPaid)
                 ? parsedPaid.ToUniversalTime()
@@ -372,7 +374,10 @@ public sealed class ShopifyWebhookService(
                     externalTransactionId,
                     transactionAmount,
                     PaymentStatus.Succeeded,
-                    paidAt),
+                    paidAt,
+                    currency: currency,
+                    kind: string.Equals(kind, "capture", StringComparison.OrdinalIgnoreCase) ? PaymentKind.Capture : PaymentKind.Sale,
+                    gateway: gateway),
                 cancellationToken);
         }
     }
@@ -460,94 +465,74 @@ public sealed class ShopifyWebhookService(
             ? orderIdProperty.ToString()
             : null;
 
-        var successfulRefundAmount = 0m;
-        var parentTransactionIds = new HashSet<string>(StringComparer.Ordinal);
+        var tenantId = await db.IntegrationConnections
+            .Where(x => x.Id == connectionId)
+            .Select(x => x.TenantId)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (root.TryGetProperty("transactions", out var transactions) &&
-            transactions.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var transaction in transactions.EnumerateArray())
-            {
-                var kind = transaction.TryGetProperty("kind", out var kindProperty)
-                    ? kindProperty.GetString()
-                    : null;
-                var status = transaction.TryGetProperty("status", out var statusProperty)
-                    ? statusProperty.GetString()
-                    : null;
-
-                if (!string.Equals(kind, "refund", StringComparison.OrdinalIgnoreCase) ||
-                    !string.Equals(status, "success", StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                successfulRefundAmount += ParseDecimal(transaction, "amount");
-
-                if (transaction.TryGetProperty("parent_id", out var parentId) &&
-                    parentId.ValueKind != JsonValueKind.Null &&
-                    !string.IsNullOrWhiteSpace(parentId.ToString()))
-                {
-                    parentTransactionIds.Add(parentId.ToString());
-                }
-            }
-        }
-
-        if (successfulRefundAmount <= 0m)
+        if (tenantId == Guid.Empty || string.IsNullOrWhiteSpace(orderId))
             return;
 
-        var tenantId = await db.IntegrationConnections.Where(x => x.Id == connectionId).Select(x => x.TenantId).FirstOrDefaultAsync(cancellationToken);
-        if (tenantId == Guid.Empty) return;
+        var order = await FindOrderByShopifyIdAsync(connectionId, orderId, cancellationToken);
+        if (order is null)
+            return;
 
-        var payments = new List<Payment>();
+        if (!root.TryGetProperty("transactions", out var transactions) ||
+            transactions.ValueKind != JsonValueKind.Array)
+            return;
 
-        foreach (var parentId in parentTransactionIds)
+        foreach (var transaction in transactions.EnumerateArray())
         {
-            var payment = await db.Payments.FirstOrDefaultAsync(
-                x => x.TenantId == tenantId && x.TransactionId == $"SHOPIFY-{parentId}",
+            var kind = transaction.TryGetProperty("kind", out var kindProperty) ? kindProperty.GetString() : null;
+            var status = transaction.TryGetProperty("status", out var statusProperty) ? statusProperty.GetString() : null;
+
+            if (!string.Equals(kind, "refund", StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(status, "success", StringComparison.OrdinalIgnoreCase) ||
+                !transaction.TryGetProperty("id", out var refundId))
+                continue;
+
+            var transactionId = $"SHOPIFY-{refundId}";
+            if (await db.Payments.AnyAsync(x => x.TenantId == tenantId && x.TransactionId == transactionId, cancellationToken))
+                continue;
+
+            var amount = ParseDecimal(transaction, "amount");
+            var gateway = transaction.TryGetProperty("gateway", out var gatewayProperty) ? gatewayProperty.GetString() : null;
+            var currency = root.TryGetProperty("currency", out var currencyProperty)
+                ? currencyProperty.GetString() ?? order.Currency
+                : order.Currency;
+            var createdAt = transaction.TryGetProperty("created_at", out var createdProperty) &&
+                            DateTime.TryParse(createdProperty.GetString(), out var parsedCreated)
+                ? parsedCreated.ToUniversalTime()
+                : DateTime.UtcNow;
+
+            await db.Payments.AddAsync(
+                Payment.Create(
+                    tenantId,
+                    order.Id,
+                    transactionId,
+                    amount,
+                    PaymentStatus.Refunded,
+                    createdAt,
+                    currency: currency,
+                    kind: PaymentKind.Refund,
+                    gateway: gateway),
                 cancellationToken);
-
-            if (payment is not null)
-                payments.Add(payment);
         }
 
-        if (payments.Count == 0 && !string.IsNullOrWhiteSpace(orderId))
-        {
-            var order = await FindOrderByShopifyIdAsync(connectionId, orderId, cancellationToken);
-            if (order is not null)
-            {
-                payments = await db.Payments
-                     .Where(x => x.TenantId == tenantId && x.OrderId == order.Id && x.Status == PaymentStatus.Succeeded)
-                    .ToListAsync(cancellationToken);
-            }
-        }
+        var successfulRefundAmount = await db.Payments
+            .Where(x => x.TenantId == tenantId && x.OrderId == order.Id && x.Kind == PaymentKind.Refund && x.Status == PaymentStatus.Refunded)
+            .SumAsync(x => x.Amount, cancellationToken);
 
-        if (payments.Count == 0)
-            return;
+        var successfulSales = await db.Payments
+            .Where(x => x.TenantId == tenantId && x.OrderId == order.Id &&
+                        x.Status == PaymentStatus.Succeeded &&
+                        (x.Kind == PaymentKind.Sale || x.Kind == PaymentKind.Capture))
+            .SumAsync(x => x.Amount, cancellationToken);
 
-        var distinctPayments = payments.DistinctBy(x => x.Id).ToList();
-        var refundTarget = distinctPayments.Count == 1 ? distinctPayments[0] : null;
+        if (successfulRefundAmount >= successfulSales && successfulRefundAmount > 0m)
+            order.ChangeStatus(OrderStatus.Refunded);
 
-        if (refundTarget is not null && successfulRefundAmount >= refundTarget.Amount)
-        {
-            refundTarget.ChangeStatus(PaymentStatus.Refunded);
-            var order = await db.Orders.FirstOrDefaultAsync(x => x.Id == refundTarget.OrderId && x.TenantId == tenantId, cancellationToken);
-            order?.ChangeStatus(OrderStatus.Refunded);
-            return;
-        }
-
-        if (!string.IsNullOrWhiteSpace(orderId))
-        {
-            var order = await FindOrderByShopifyIdAsync(connectionId, orderId, cancellationToken);
-            if (order is not null)
-            {
-                var totalPaid = distinctPayments.Sum(x => x.Amount);
-                if (successfulRefundAmount >= totalPaid)
-                {
-                    foreach (var payment in distinctPayments)
-                        payment.ChangeStatus(PaymentStatus.Refunded);
-
-                    order.ChangeStatus(OrderStatus.Refunded);
-                }
-            }
-        }
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<Order?> FindOrderByShopifyIdAsync(

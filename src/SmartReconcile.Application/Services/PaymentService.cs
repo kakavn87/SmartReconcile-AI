@@ -22,5 +22,5 @@ public sealed class PaymentService(IPaymentRepository repository, IOrderReposito
         return Map(payment);
     }
 
-    private static PaymentDto Map(Payment x) => new(x.Id, x.OrderId, x.TransactionId, x.Amount, x.Currency, x.Status, x.PaidAtUtc);
+    private static PaymentDto Map(Payment x) => new(x.Id, x.OrderId, x.TransactionId, x.Amount, x.Currency, x.Status, x.Kind, x.Gateway, x.PaidAtUtc);
 }
