@@ -48,20 +48,36 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
         var reconciledOrderIds = orders
             .Where(order =>
             {
-                var payment = payments.FirstOrDefault(x => x.OrderId == order.Id && x.Status == PaymentStatus.Succeeded);
-                var hasOpenDiscrepancy = openDiscrepancies.Any(x => x.OrderId == order.Id || (payment is not null && x.PaymentId == payment.Id));
-                return payment is not null && Math.Abs(order.TotalAmount - payment.Amount) <= 0.01m && !hasOpenDiscrepancy;
+                var payment = payments.FirstOrDefault(x =>
+                    x.OrderId == order.Id &&
+                    x.Kind != PaymentKind.Refund &&
+                    x.Status == PaymentStatus.Succeeded);
+
+                var hasOpenDiscrepancy = openDiscrepancies.Any(x =>
+                    x.OrderId == order.Id ||
+                    (payment is not null && x.PaymentId == payment.Id));
+
+                return payment is not null &&
+                       Math.Abs(order.TotalAmount - payment.Amount) <= 0.01m &&
+                       !hasOpenDiscrepancy;
             })
             .Select(x => x.Id)
             .ToHashSet();
 
+        // DATEV export records accounting-relevant paid orders. A partial refund
+        // is represented by an Order that remains Paid plus a separate Refund
+        // payment; a fully refunded order is represented by OrderStatus.Refunded.
+        // Discrepancies do not exclude orders unless the caller explicitly asks
+        // for onlyReconciled.
         var selectedOrders = onlyReconciled
             ? orders.Where(x => reconciledOrderIds.Contains(x.Id)).ToList()
-            : orders;
+            : orders.Where(x => x.Status is OrderStatus.Paid or OrderStatus.Refunded).ToList();
 
         var selectedOrderIds = selectedOrders.Select(x => x.Id).ToHashSet();
         var selectedPayments = payments
-            .Where(x => selectedOrderIds.Contains(x.OrderId) && x.Status == PaymentStatus.Succeeded)
+            .Where(x =>
+                selectedOrderIds.Contains(x.OrderId) &&
+                (x.Status == PaymentStatus.Succeeded || x.Status == PaymentStatus.Refunded))
             .OrderBy(x => x.PaidAtUtc)
             .ToList();
 
