@@ -149,7 +149,7 @@ public sealed class ControlTowerService(
 
         item.StartInvestigation();
 
-        var context = await BuildAiContextAsync(tenantId, discrepancy, links, cancellationToken);
+        var context = await BuildAiContextAsync(tenantId, item, discrepancy, links, cancellationToken);
         var aiResult = await aiAnalysis.AnalyzeFinancialCaseAsync(
             new FinancialCaseAnalysisRequest(item.Title, item.Description, context),
             cancellationToken);
@@ -523,15 +523,14 @@ public sealed class ControlTowerService(
 
     private async Task<string> BuildAiContextAsync(
         Guid tenantId,
+        FinancialCase financialCase,
         Discrepancy? discrepancy,
         IReadOnlyList<FinancialCaseLink> links,
         CancellationToken cancellationToken)
     {
         var nodes = await BuildGraphNodesAsync(
             tenantId,
-            discrepancy is null
-                ? FinancialCase.Create(tenantId, null, FinancialCaseSeverity.Low, "AI-Kontext", string.Empty, 0m)
-                : FinancialCase.Create(tenantId, discrepancy.Id, FinancialCaseSeverity.Low, discrepancy.Title, discrepancy.Description, discrepancy.AffectedAmount),
+            financialCase,
             discrepancy,
             links,
             cancellationToken);
