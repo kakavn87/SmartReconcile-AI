@@ -222,8 +222,8 @@ public sealed class DatevExtfExporter(SmartReconcileDbContext db, IAccountingSet
         decimal Amount,
         bool Debit,
         string Account,
-        string Currency,
         string CounterAccount,
+        string Currency,
         DateTime DocumentDate,
         string DocumentReference,
         string Text)
