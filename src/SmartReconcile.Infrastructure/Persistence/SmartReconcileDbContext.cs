@@ -25,6 +25,8 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.TenantId, x.OrderNumber }).IsUnique();
             e.HasIndex(x => x.TenantId);
+            e.Property(x => x.ShopifyOrderId).HasMaxLength(200);
+            e.HasIndex(x => new { x.TenantId, x.ShopifyOrderId });
             e.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
             e.Property(x => x.TotalAmount).HasPrecision(18, 2);
             e.Property(x => x.TaxRate).HasPrecision(5, 2);
@@ -49,13 +51,28 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
         modelBuilder.Entity<Invoice>(e =>
         {
             e.HasKey(x => x.Id);
-            e.HasIndex(x => new { x.TenantId, x.InvoiceNumber });
+            e.HasIndex(x => new { x.TenantId, x.InvoiceNumber }).IsUnique();
             e.HasIndex(x => x.TenantId);
             e.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<Order>().WithMany().HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => x.OrderId);
             e.Property(x => x.Amount).HasPrecision(18, 2);
+            e.Property(x => x.NetAmount).HasPrecision(18, 2);
+            e.Property(x => x.TaxRate).HasPrecision(5, 2);
+            e.Property(x => x.TaxAmount).HasPrecision(18, 2);
+            e.Property(x => x.GrossAmount).HasPrecision(18, 2);
+            e.Property(x => x.InvoiceNumber).HasMaxLength(50).IsRequired();
+            e.Property(x => x.Currency).HasMaxLength(3).IsRequired();
+            e.Property(x => x.CustomerName).HasMaxLength(200);
+            e.Property(x => x.CustomerEmail).HasMaxLength(320);
+            e.Property(x => x.CustomerAddress).HasMaxLength(1000);
+            e.Property(x => x.RefundId).HasMaxLength(200);
+            e.Property(x => x.ShopifyOrderId).HasMaxLength(200);
             e.Property(x => x.RawText).HasColumnType("text");
+            e.Property(x => x.PdfContent).HasColumnType("bytea");
+            e.HasOne<Invoice>().WithMany().HasForeignKey(x => x.OriginalInvoiceId).OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => new { x.TenantId, x.RefundId }).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.ShopifyOrderId });
         });
 
         modelBuilder.Entity<Discrepancy>(e =>
@@ -90,6 +107,7 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
             e.Property(x => x.EncryptedAccessToken).HasColumnType("text");
             e.Property(x => x.EncryptedRefreshToken).HasColumnType("text");
             e.Property(x => x.Scopes).HasMaxLength(1000).IsRequired();
+            e.Property(x => x.InvoiceAccessTokenHash).HasMaxLength(64); e.Property(x => x.InvoiceAccessTokenLast4).HasMaxLength(4);
             e.HasIndex(x => new { x.TenantId, x.Provider, x.ShopDomain });
             e.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -149,6 +167,11 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
             e.Property(x => x.RevenueAccount7).HasMaxLength(8).IsRequired();
             e.Property(x => x.PaymentClearingAccount).HasMaxLength(8).IsRequired();
             e.Property(x => x.FeeAccount).HasMaxLength(8).IsRequired();
+            e.Property(x => x.CompanyName).HasMaxLength(200);
+            e.Property(x => x.CompanyAddress).HasMaxLength(1000);
+            e.Property(x => x.TaxNumber).HasMaxLength(100);
+            e.Property(x => x.VatId).HasMaxLength(100);
+            e.Property(x => x.BankDetails).HasMaxLength(1000);
             e.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
         });
 
