@@ -49,6 +49,7 @@ public sealed record ShopifyOrder(
     string Currency,
     string FinancialStatus,
     DateTime CreatedAtUtc,
+    string ShopCurrency,
     IReadOnlyList<ShopifyTransaction> Transactions);
 
 public sealed record ShopifyTransaction(
@@ -57,5 +58,6 @@ public sealed record ShopifyTransaction(
     string Currency,
     string Status,
     string Kind,
+    string Gateway,
     decimal FeeAmount,
     DateTime CreatedAtUtc);
