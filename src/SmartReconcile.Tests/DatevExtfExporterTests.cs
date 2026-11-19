@@ -314,7 +314,7 @@ public sealed class DatevExtfExporterTests
 
         var text = Decode(bytes);
 
-        Assert.Contains("100,00;S;"USD";1,0000;", text);
+        Assert.Contains("100,00;S;\"USD\";1,0000;", text);
         Assert.Contains(";1360;8400;", text);
         Assert.Contains("SHOPIFY-#1001", text);
     }
