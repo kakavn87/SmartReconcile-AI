@@ -38,6 +38,30 @@ public sealed class ShopifyTenantResolutionService(
             if (!existingTenant.IsActive)
                 throw new UnauthorizedAccessException("The Shopify tenant is inactive.");
 
+            // Embedded App sessions are the source of truth for the current shop.
+            // Older connections created before token exchange/refresh support may
+            // have no encrypted access token. Re-hydrate those credentials from
+            // the current Shopify ID token instead of allowing a manual sync to
+            // fail with "Keine gültige Shopify-Verbindung.".
+            if (string.IsNullOrWhiteSpace(existingConnection.EncryptedAccessToken))
+            {
+                var refreshedCredentials = await authentication.ExchangeIdTokenAsync(
+                    shopDomain,
+                    idToken,
+                    cancellationToken);
+
+                existingConnection.UpdateShopifyCredentials(
+                    secretProtector.Protect(refreshedCredentials.AccessToken),
+                    refreshedCredentials.Scope,
+                    string.IsNullOrWhiteSpace(refreshedCredentials.RefreshToken)
+                        ? existingConnection.EncryptedRefreshToken
+                        : secretProtector.Protect(refreshedCredentials.RefreshToken),
+                    DateTime.UtcNow.AddSeconds(refreshedCredentials.ExpiresInSeconds),
+                    refreshedCredentials.RefreshTokenExpiresInSeconds > 0
+                        ? DateTime.UtcNow.AddSeconds(refreshedCredentials.RefreshTokenExpiresInSeconds)
+                        : existingConnection.RefreshTokenExpiresAtUtc);
+            }
+
             existingConnection.Touch();
             await connections.SaveAsync(cancellationToken);
             return new ShopifyTenantResolution(existingTenant, existingConnection);
