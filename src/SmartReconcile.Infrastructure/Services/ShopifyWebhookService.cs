@@ -64,7 +64,19 @@ public sealed class ShopifyWebhookService(
 
         connection.MarkWebhookReceived();
         db.WebhookEvents.Add(webhook);
-        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            var alreadyStored = await db.WebhookEvents.AnyAsync(
+                x => x.ConnectionId == connection.Id && x.ExternalEventId == webhookId,
+                cancellationToken);
+            if (alreadyStored)
+                return new ShopifyWebhookResult(Guid.Empty, true, true, eventType, normalizedShopDomain);
+            throw;
+        }
 
         return new ShopifyWebhookResult(
             webhook.Id,
