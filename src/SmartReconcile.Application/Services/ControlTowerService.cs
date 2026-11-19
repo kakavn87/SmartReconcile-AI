@@ -29,7 +29,7 @@ public sealed class ControlTowerService(
 
         var revenue = decimal.Round(orderList.Where(x => string.Equals(x.Currency, shopCurrency, StringComparison.OrdinalIgnoreCase)).Sum(x => x.TotalAmount), 2);
         var collected = decimal.Round(
-            paymentList.Where(x => string.Equals(x.Currency, shopCurrency, StringComparison.OrdinalIgnoreCase) && x.Status == PaymentStatus.Succeeded && x.Kind is PaymentKind.Sale or PaymentKind.Capture).Sum(x => x.Amount)
+            paymentList.Where(x => string.Equals(x.Currency, shopCurrency, StringComparison.OrdinalIgnoreCase) && x.Status == PaymentStatus.Succeeded && (x.Kind is PaymentKind.Sale or PaymentKind.Capture)).Sum(x => x.Amount)
             - paymentList.Where(x => string.Equals(x.Currency, shopCurrency, StringComparison.OrdinalIgnoreCase) && x.Status == PaymentStatus.Refunded && x.Kind == PaymentKind.Refund).Sum(x => x.Amount), 2);
         var cashGap = decimal.Round(Math.Max(0, revenue - collected), 2);
         var openCases = caseList.Where(x => x.Status is FinancialCaseStatus.Open or FinancialCaseStatus.Investigating).ToList();
