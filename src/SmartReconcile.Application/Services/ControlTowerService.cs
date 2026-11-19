@@ -25,16 +25,27 @@ public sealed class ControlTowerService(
         var paymentList = await payments.GetAllAsync(tenantId, cancellationToken);
         var caseList = await cases.GetAllAsync(tenantId, cancellationToken);
         var connectionList = await connections.GetForTenantAsync(tenantId, cancellationToken);
+        var shopCurrency = connectionList.FirstOrDefault(x => x.Provider == IntegrationProvider.Shopify)?.ShopCurrency ?? "EUR";
 
-        var revenue = decimal.Round(orderList.Sum(x => x.TotalAmount), 2);
-        var collected = decimal.Round(paymentList
-            .Where(x => x.Status == PaymentStatus.Succeeded)
-            .Sum(x => x.Amount), 2);
+        var revenue = decimal.Round(orderList.Where(x => string.Equals(x.Currency, shopCurrency, StringComparison.OrdinalIgnoreCase)).Sum(x => x.TotalAmount), 2);
+        var collected = decimal.Round(
+            paymentList.Where(x => string.Equals(x.Currency, shopCurrency, StringComparison.OrdinalIgnoreCase) && x.Status == PaymentStatus.Succeeded && x.Kind is PaymentKind.Sale or PaymentKind.Capture).Sum(x => x.Amount)
+            - paymentList.Where(x => string.Equals(x.Currency, shopCurrency, StringComparison.OrdinalIgnoreCase) && x.Status == PaymentStatus.Refunded && x.Kind == PaymentKind.Refund).Sum(x => x.Amount), 2);
         var cashGap = decimal.Round(Math.Max(0, revenue - collected), 2);
         var openCases = caseList.Where(x => x.Status is FinancialCaseStatus.Open or FinancialCaseStatus.Investigating).ToList();
         var affectedAmount = decimal.Round(openCases.Sum(x => x.AffectedAmount), 2);
         var highRisk = openCases.Count(x => x.Severity is FinancialCaseSeverity.High or FinancialCaseSeverity.Critical);
-        var score = CalculateIntegrityScore(revenue, collected, affectedAmount, openCases);
+        var orderCases = openCases.Where(x => x.DiscrepancyId.HasValue).ToList();
+        var affectedOrderIds = new HashSet<Guid>();
+        foreach (var discrepancyCase in orderCases)
+        {
+            var discrepancy = await discrepancies.GetByIdAsync(discrepancyCase.DiscrepancyId!.Value, tenantId, cancellationToken);
+            if (discrepancy?.OrderId is Guid orderId) affectedOrderIds.Add(orderId);
+        }
+        var orderCount = orderList.Count;
+        var matchedOrderCount = Math.Max(0, orderCount - affectedOrderIds.Count);
+        var score = CalculateIntegrityScore(orderCount, matchedOrderCount);
+        var explanation = BuildIntegrityExplanation(orderCount, matchedOrderCount, affectedOrderIds.Count, openCases.Count);
 
         var health = connectionList
             .OrderBy(x => x.Provider)
@@ -48,6 +59,7 @@ public sealed class ControlTowerService(
 
         return new ControlTowerDto(
             score,
+            explanation,
             revenue,
             revenue,
             collected,
@@ -522,20 +534,21 @@ public sealed class ControlTowerService(
         return discrepancy.AffectedAmount >= 500 ? FinancialCaseSeverity.High : FinancialCaseSeverity.Medium;
     }
 
-    private static decimal CalculateIntegrityScore(
-        decimal revenue,
-        decimal collected,
-        decimal affectedAmount,
-        IReadOnlyCollection<FinancialCase> openCases)
+    private static decimal CalculateIntegrityScore(int orderCount, int matchedOrderCount)
     {
-        if (revenue <= 0) return 100;
+        if (orderCount <= 0) return 100m;
+        return decimal.Round(Math.Clamp(matchedOrderCount * 100m / orderCount, 0m, 100m), 1);
+    }
 
-        var collectionPenalty = Math.Min(25m, Math.Max(0, (revenue - collected) / revenue * 100m));
-        var affectedPenalty = Math.Min(30m, affectedAmount / revenue * 100m * 0.5m);
-        var casePenalty = Math.Min(20m, openCases.Count * 1.5m);
-        var criticalPenalty = Math.Min(25m, openCases.Count(x => x.Severity == FinancialCaseSeverity.Critical) * 8m);
+    private static string BuildIntegrityExplanation(int orderCount, int matchedOrderCount, int affectedOrderCount, int openCaseCount)
+    {
+        if (orderCount == 0)
+            return "Noch keine Bestellungen für die finanzielle Integritätsprüfung vorhanden.";
 
-        return decimal.Round(Math.Clamp(100m - collectionPenalty - affectedPenalty - casePenalty - criticalPenalty, 0m, 100m), 1);
+        if (affectedOrderCount == 0 && openCaseCount == 0)
+            return $"Alle {orderCount} Bestellungen stimmen mit den verbuchten Zahlungseingängen überein. Keine offenen Abweichungen.";
+
+        return $"{matchedOrderCount} von {orderCount} Bestellungen sind zahlungsseitig abgestimmt. {affectedOrderCount} Bestellungen sind von offenen Abweichungen betroffen; insgesamt {openCaseCount} offene Finanzfälle.";
     }
 
     private static SystemHealthDto MapHealth(Domain.Entities.IntegrationConnection connection)
