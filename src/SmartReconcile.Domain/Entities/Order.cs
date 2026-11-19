@@ -16,7 +16,7 @@ public sealed class Order
     public decimal TaxRate { get; private set; } = 19m;
     public OrderStatus Status { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
-    public Payment? Payment { get; private set; }
+    public ICollection<Payment> Payments { get; private set; } = new List<Payment>();
 
     public static Order Create(
         string orderNumber,
