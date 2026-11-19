@@ -24,6 +24,9 @@ public sealed class IntegrationConnection
     public DateTime? LastSeenAtUtc { get; private set; }
     public DateTime? LastSyncAtUtc { get; private set; }
     public DateTime? LastWebhookAtUtc { get; private set; }
+    public string? InvoiceAccessTokenHash { get; private set; }
+    public string? InvoiceAccessTokenLast4 { get; private set; }
+    public DateTime? InvoiceAccessTokenUpdatedAtUtc { get; private set; }
 
     public static IntegrationConnection Create(
         Guid tenantId,
@@ -81,6 +84,20 @@ public sealed class IntegrationConnection
             Status = ConnectionStatus.Connected,
             CreatedAtUtc = DateTime.UtcNow
         };
+    }
+
+    public void SetInvoiceAccessTokenHash(string hash, string last4)
+    {
+        InvoiceAccessTokenHash = hash;
+        InvoiceAccessTokenLast4 = last4;
+        InvoiceAccessTokenUpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void RevokeInvoiceAccessToken()
+    {
+        InvoiceAccessTokenHash = null;
+        InvoiceAccessTokenLast4 = null;
+        InvoiceAccessTokenUpdatedAtUtc = DateTime.UtcNow;
     }
 
     public void Touch()
