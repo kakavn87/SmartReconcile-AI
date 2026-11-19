@@ -15,8 +15,8 @@ export const CaseDetailStore = signalStore(
     order:computed(() => data()?.graphNodes.find(x => x.nodeType === 'Order') ?? null),
     payment:computed(() => data()?.graphNodes.find(x => x.nodeType === 'Payment') ?? null),
     invoice:computed(() => data()?.graphNodes.find(x => x.nodeType === 'Invoice') ?? null),
-    isOpen:computed(() => data()?.status === 'Open' || data()?.status === 'Investigating' || (data()?.status as unknown as number) === 1 || (data()?.status as unknown as number) === 2),
-    hasAnalysis:computed(() => data()?.rootCauseAnalysis.analyzed === true)
+    isOpen:computed(() => data()?.status === 'Open' || data()?.status === 'Investigating'),
+    hasAnalysis:computed(() => data()?.rootCauseAnalysis.isAvailable === true)
   })),
   withMethods((store, api=inject(ApiService)) => ({
     load:rxMethod<string>(pipe(
