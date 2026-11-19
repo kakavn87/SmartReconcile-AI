@@ -57,10 +57,10 @@ public sealed class DatevExtfExporterTests
         var text = Decode(bytes);
 
         Assert.Contains("\"EXTF\";700;21;\"Buchungsstapel\";13;", text);
-        Assert.Contains(";1001;10001;20260101;4;20261101;20261130;", text);
+        Assert.Contains(";1001;10001;20260101;4;20261101;20261130;"SmartReconcile 11.2026";", text);
         Assert.Contains(";\"03\";", text);
-        Assert.Contains("119,00;H;", text);
-        Assert.Contains(";8400;1360;", text);
+        Assert.Contains("119,00;S;", text);
+        Assert.Contains(";1360;8400;", text);
         Assert.Contains("2,90;S;", text);
         Assert.Contains(";4970;1360;", text);
     }
@@ -100,9 +100,63 @@ public sealed class DatevExtfExporterTests
 
         var text = Decode(bytes);
 
-        Assert.Contains("107,00;H;", text);
-        Assert.Contains(";4300;1460;", text);
+        Assert.Contains("107,00;S;", text);
+        Assert.Contains(";1460;4300;", text);
         Assert.Contains(";\"04\";", text);
+    }
+
+    [Fact]
+    public async Task Refund_reverses_clearing_and_revenue_direction()
+    {
+        await using var db = CreateDb();
+        var tenant = Tenant.Create("Test GmbH", "test-refund");
+        await db.Tenants.AddAsync(tenant);
+
+        var settings = AccountingSettings.CreateDefault(tenant.Id);
+        await db.AccountingSettings.AddAsync(settings);
+
+        var order = Order.Create(
+            "DE-REFUND-1",
+            "Max Mustermann",
+            "max@example.de",
+            119m,
+            OrderStatus.Paid,
+            new DateTime(2026, 11, 29, 10, 0, 0, DateTimeKind.Utc),
+            19m,
+            tenantId: tenant.Id);
+
+        var payment = Payment.Create(
+            tenant.Id,
+            order.Id,
+            "REFUND-1",
+            50m,
+            PaymentStatus.Succeeded,
+            new DateTime(2026, 11, 29, 10, 5, 0, DateTimeKind.Utc),
+            kind: PaymentKind.Refund);
+
+        await db.Orders.AddAsync(order);
+        await db.Payments.AddAsync(payment);
+        await db.SaveChangesAsync();
+
+        var exporter = new DatevExtfExporter(db, new TestAccountingSettingsService(settings));
+
+        var bytes = await exporter.ExportAsync(
+            tenant.Id,
+            new DateOnly(2026, 11, 1),
+            new DateOnly(2026, 11, 30),
+            false,
+            CancellationToken.None);
+
+        var text = Decode(bytes);
+
+        Assert.Contains("50,00;H;", text);
+        Assert.Contains(";1360;8400;", text);
+        Assert.Contains("Rückerstattung REFUND-1", text);
+        Assert.Contains("
+", text);
+        Assert.DoesNotContain("
+", text.Replace("
+", string.Empty, StringComparison.Ordinal));
     }
 
     [Fact]
