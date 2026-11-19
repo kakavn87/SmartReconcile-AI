@@ -148,6 +148,7 @@ public sealed class IntegrationConnection
 
     public void Revoke()
     {
+        RevokeInvoiceAccessToken();
         Status = ConnectionStatus.Revoked;
         LastSeenAtUtc = null;
     }
