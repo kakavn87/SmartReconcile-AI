@@ -53,7 +53,7 @@ import { CaseDetailStore } from '../../core/stores/case-detail.store';
                     <span class="text-xs font-extrabold uppercase tracking-wide text-slate-500">{{node?.nodeType}}</span>
                     <span class="text-[10px] font-extrabold uppercase" [class.text-red-600]="!node?.exists && node?.nodeType !== 'Invoice' && node?.status !== 'Kein Zahlungseingang'" [class.text-slate-500]="!node?.exists && (node?.nodeType === 'Invoice' || node?.status === 'Kein Zahlungseingang')" [class.text-emerald-700]="node?.exists && (node?.status === 'Bezahlt' || node?.status === 'Erfolgreich' || node?.status === 'Vorhanden')" [class.text-amber-700]="node?.exists && node?.status !== 'Bezahlt' && node?.status !== 'Erfolgreich' && node?.status !== 'Vorhanden'">{{node?.status}}</span>
                   </div>
-                  <div class="mt-4 text-sm font-extrabold text-slate-950">{{node?.exists ? node?.identifier : (node?.status === 'Nicht verknüpft' ? 'Nicht verknüpft' : node?.status === 'Kein Zahlungseingang' ? 'Kein Zahlungseingang' : 'Fehlt')}}</div>
+                  <div class="mt-4 text-sm font-extrabold text-slate-950">{{node?.exists ? node?.identifier : (node?.nodeType === 'Invoice' ? 'Nicht verknüpft' : node?.status === 'Kein Zahlungseingang' ? 'Kein Zahlungseingang' : 'Fehlt')}}</div>
                   <div class="mt-2 text-xl font-extrabold text-slate-900">@if(node?.amount !== null && node?.amount !== undefined){{{node?.amount | currency:node?.currency:'symbol':'1.2-2':'de-DE'}}} @else {—}</div>
                   <div class="mt-2 text-xs text-slate-500">{{node?.createdAtUtc ? (node?.createdAtUtc | date:'dd.MM.yyyy HH:mm':'Europe/Berlin':'de-DE') : 'Keine Daten vorhanden'}}</div>
                   <div class="mt-3 text-xs text-slate-500">{{node?.detail}}</div>
@@ -129,8 +129,19 @@ export class CaseDetailPage {
     const id=this.route.snapshot.paramMap.get('id');
     if(id) this.store.load(id);
   }
-  statusLabel(status:string):string { return status==='Open'?'Offen':status==='Investigating'?'In Prüfung':status==='Resolved'?'Gelöst':'Ignoriert'; }
-  eventLabel(type:string):string { return type==='Detected'?'Erkannt':type==='Investigated'?'KI-Untersuchung':type==='ActionExecuted'?'Aktion ausgeführt':type==='Resolved'?'Gelöst':'Ignoriert'; }
+  statusLabel(status:string|number):string {
+    if(status==='Open' || status===1 || status===0) return 'Offen';
+    if(status==='Investigating' || status===2) return 'In Prüfung';
+    if(status==='Resolved' || status===3) return 'Gelöst';
+    return 'Ignoriert';
+  }
+  eventLabel(type:string|number):string {
+    if(type==='Detected' || type===1 || type===0) return 'Erkannt';
+    if(type==='Investigated' || type===2) return 'KI-Untersuchung';
+    if(type==='ActionExecuted' || type===3) return 'Aktion ausgeführt';
+    if(type==='Resolved' || type===4) return 'Gelöst';
+    return 'Ignoriert';
+  }
   resolve(note:string|null=null):void {
     const data=this.store.data();
     if(data) this.store.resolve({id:data.id,rootCause:data.rootCauseAnalysis.analysis,note});
