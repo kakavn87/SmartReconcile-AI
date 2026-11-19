@@ -172,7 +172,8 @@ public sealed class DatevExtfExporterTests
             3163.40m,
             OrderStatus.Paid,
             new DateTime(2026, 11, 29, 10, 0, 0, DateTimeKind.Utc),
-            19m);
+            19m,
+            tenantId: tenant.Id);
 
         var sale = Payment.Create(
             tenant.Id,
@@ -228,7 +229,8 @@ public sealed class DatevExtfExporterTests
             500m,
             OrderStatus.Paid,
             new DateTime(2026, 11, 10, 10, 0, 0, DateTimeKind.Utc),
-            19m);
+            19m,
+            tenantId: tenant.Id);
 
         var payment = Payment.Create(
             tenant.Id,
