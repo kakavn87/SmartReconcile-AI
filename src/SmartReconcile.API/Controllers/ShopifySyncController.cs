@@ -26,5 +26,12 @@ public sealed class ShopifySyncController(
         {
             return NotFound(new { message = "Shopify-Verbindung wurde nicht gefunden." });
         }
+        catch (Exception ex)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                message = $"Shopify-Synchronisation fehlgeschlagen: {ex.Message}"
+            });
+        }
     }
 }
