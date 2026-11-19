@@ -26,7 +26,7 @@ public sealed class OrderService(IOrderRepository repository, IInvoiceRepository
     {
         var order = Order.Create(request.OrderNumber, request.CustomerName, request.CustomerEmail, request.TotalAmount, request.Status, request.CreatedAtUtc ?? DateTime.UtcNow, tenantId: tenantId);
         await repository.AddAsync(order, cancellationToken);
-        return Map(order);
+        return Map(order, null);
     }
 
     private static OrderDto Map(Order x, Invoice? invoice) => new(
