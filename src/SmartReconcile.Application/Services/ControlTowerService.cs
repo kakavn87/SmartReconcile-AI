@@ -404,7 +404,22 @@ public sealed class ControlTowerService(
         var paymentId = discrepancy?.PaymentId ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Payment)?.EntityId;
         var invoiceId = discrepancy?.InvoiceId ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Invoice)?.EntityId;
 
-        var order = orderId.HasValue ? await orders.GetByIdAsync(orderId.Value, tenantId, cancellationToken) : null;
+        var order = orderId.HasValue
+            ? await orders.GetByIdAsync(orderId.Value, tenantId, cancellationToken)
+            : null;
+
+        // Legacy discrepancies created before OrderId/PaymentId were persisted may still
+        // have null references. Recover the real order from the discrepancy description so
+        // older financial cases do not render an entirely empty document chain.
+        if (order is null && discrepancy is not null)
+        {
+            var allOrders = await orders.GetAllAsync(tenantId, cancellationToken);
+            order = allOrders.FirstOrDefault(x =>
+                (!string.IsNullOrWhiteSpace(x.OrderNumber) && discrepancy.Description.Contains(x.OrderNumber, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrWhiteSpace(x.OrderNumber) && discrepancy.Title.Contains(x.OrderNumber, StringComparison.OrdinalIgnoreCase)));
+
+            orderId = order?.Id;
+        }
 
         // A discrepancy may not carry PaymentId when there is no payment (MissingPayment)
         // or when the rule is order-level (e.g. CurrencyMismatch). In that case resolve
