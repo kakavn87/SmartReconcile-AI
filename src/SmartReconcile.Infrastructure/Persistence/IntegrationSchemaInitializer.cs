@@ -73,8 +73,16 @@ public static class IntegrationSchemaInitializer
             ALTER TABLE "Invoices" DROP CONSTRAINT IF EXISTS "FK_Invoices_Tenants_TenantId";
             ALTER TABLE "Invoices" ADD CONSTRAINT "FK_Invoices_Tenants_TenantId"
                 FOREIGN KEY ("TenantId") REFERENCES "Tenants" ("Id") ON DELETE CASCADE;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "InvoiceType" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "OrderId" uuid NULL;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "CustomerName" varchar(200) NULL;
+            ALTER TABLE "Invoices" ADD COLUMN IF NOT EXISTS "Currency" varchar(3) NOT NULL DEFAULT 'EUR';
+            CREATE INDEX IF NOT EXISTS "IX_Invoices_OrderId" ON "Invoices" ("OrderId");
             CREATE INDEX IF NOT EXISTS "IX_Invoices_TenantId" ON "Invoices" ("TenantId");
             CREATE INDEX IF NOT EXISTS "IX_Invoices_TenantId_InvoiceNumber" ON "Invoices" ("TenantId", "InvoiceNumber");
+            ALTER TABLE "Invoices" DROP CONSTRAINT IF EXISTS "FK_Invoices_Orders_OrderId";
+            ALTER TABLE "Invoices" ADD CONSTRAINT "FK_Invoices_Orders_OrderId"
+                FOREIGN KEY ("OrderId") REFERENCES "Orders" ("Id") ON DELETE SET NULL;
 
             ALTER TABLE "Discrepancies" ADD COLUMN IF NOT EXISTS "TenantId" uuid;
             UPDATE "Discrepancies" d
