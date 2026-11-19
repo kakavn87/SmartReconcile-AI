@@ -151,7 +151,7 @@ public sealed class DatevExtfExporterTests
 
         Assert.Contains("50,00;H;", text);
         Assert.Contains(";1360;8400;", text);
-        Assert.Contains("Rückerstattung REFUND-1", text);
+        Assert.Contains("Erstattung DE-REFUND-1", text);
         Assert.Contains("\r\n", text);
         Assert.DoesNotContain("\n", text.Replace("\r\n", string.Empty, StringComparison.Ordinal));
     }
@@ -210,7 +210,7 @@ public sealed class DatevExtfExporterTests
         Assert.Contains("3163,40;S;", text);
         Assert.Contains(";1360;8400;", text);
         Assert.Contains("200,00;H;", text);
-        Assert.Contains("Erstattung REFUND-1007", text);
+        Assert.Contains("Erstattung SHOPIFY-#1007", text);
     }
 
     [Fact]
