@@ -52,6 +52,8 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
             e.HasIndex(x => new { x.TenantId, x.InvoiceNumber });
             e.HasIndex(x => x.TenantId);
             e.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<Order>().WithMany().HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.OrderId);
             e.Property(x => x.Amount).HasPrecision(18, 2);
             e.Property(x => x.RawText).HasColumnType("text");
         });

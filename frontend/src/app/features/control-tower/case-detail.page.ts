@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { signal } from '@angular/core';
 import { CaseDetailStore } from '../../core/stores/case-detail.store';
 
 @Component({
@@ -43,14 +44,14 @@ import { CaseDetailStore } from '../../core/stores/case-detail.store';
           <section class="app-card p-6">
             <div class="mb-5">
               <div class="text-xs font-bold uppercase tracking-wide text-slate-400">Finanzielle Belegkette</div>
-              <h2 class="mt-1 text-lg font-extrabold text-slate-950">Order → Payment → Invoice</h2>
+              <h2 class="mt-1 text-lg font-extrabold text-slate-950">Bestellung → Zahlung → Rechnung</h2>
             </div>
             <div class="grid items-stretch gap-3 lg:grid-cols-[1fr_auto_1fr_auto_1fr]">
               @for (node of [store.order(), store.payment(), store.invoice()]; track node?.nodeType ?? $index) {
                 @if ($index > 0) { <div class="hidden items-center justify-center text-2xl font-light text-slate-300 lg:flex">→</div> }
-                <div class="rounded-2xl border p-5" [class.border-red-300]="!node?.exists && node?.nodeType !== 'Invoice' && node?.status !== 'Kein Zahlungseingang'" [class.border-dashed]="!node?.exists && node?.nodeType !== 'Invoice' && node?.status !== 'Kein Zahlungseingang'" [class.bg-red-50]="!node?.exists && node?.nodeType !== 'Invoice' && node?.status !== 'Kein Zahlungseingang'" [class.border-slate-200]="!node?.exists && (node?.nodeType === 'Invoice' || node?.status === 'Kein Zahlungseingang')" [class.bg-slate-50]="!node?.exists && (node?.nodeType === 'Invoice' || node?.status === 'Kein Zahlungseingang')" [class.border-amber-200]="node?.exists && node?.status !== 'Bezahlt' && node?.status !== 'Erfolgreich' && node?.status !== 'Vorhanden'" [class.bg-amber-50]="node?.exists && node?.status !== 'Bezahlt' && node?.status !== 'Erfolgreich' && node?.status !== 'Vorhanden'" [class.border-emerald-200]="node?.exists && (node?.status === 'Bezahlt' || node?.status === 'Erfolgreich' || node?.status === 'Vorhanden')" [class.bg-emerald-50]="node?.exists && (node?.status === 'Bezahlt' || node?.status === 'Erfolgreich' || node?.status === 'Vorhanden')">
+                <div class="cursor-pointer rounded-2xl border p-5" (click)="openNode(node)" [class.border-red-300]="!node?.exists && node?.nodeType !== 'Invoice' && node?.status !== 'Kein Zahlungseingang'" [class.border-dashed]="!node?.exists && node?.nodeType !== 'Invoice' && node?.status !== 'Kein Zahlungseingang'" [class.bg-red-50]="!node?.exists && node?.nodeType !== 'Invoice' && node?.status !== 'Kein Zahlungseingang'" [class.border-slate-200]="!node?.exists && (node?.nodeType === 'Invoice' || node?.status === 'Kein Zahlungseingang')" [class.bg-slate-50]="!node?.exists && (node?.nodeType === 'Invoice' || node?.status === 'Kein Zahlungseingang')" [class.border-amber-200]="node?.exists && node?.status !== 'Bezahlt' && node?.status !== 'Erfolgreich' && node?.status !== 'Vorhanden'" [class.bg-amber-50]="node?.exists && node?.status !== 'Bezahlt' && node?.status !== 'Erfolgreich' && node?.status !== 'Vorhanden'" [class.border-emerald-200]="node?.exists && (node?.status === 'Bezahlt' || node?.status === 'Erfolgreich' || node?.status === 'Vorhanden')" [class.bg-emerald-50]="node?.exists && (node?.status === 'Bezahlt' || node?.status === 'Erfolgreich' || node?.status === 'Vorhanden')">
                   <div class="flex items-center justify-between gap-2">
-                    <span class="text-xs font-extrabold uppercase tracking-wide text-slate-500">{{node?.nodeType}}</span>
+                    <span class="text-xs font-extrabold uppercase tracking-wide text-slate-500">{{nodeLabel(node?.nodeType)}}</span>
                     <span class="text-[10px] font-extrabold uppercase" [class.text-red-600]="!node?.exists && node?.nodeType !== 'Invoice' && node?.status !== 'Kein Zahlungseingang'" [class.text-slate-500]="!node?.exists && (node?.nodeType === 'Invoice' || node?.status === 'Kein Zahlungseingang')" [class.text-emerald-700]="node?.exists && (node?.status === 'Bezahlt' || node?.status === 'Erfolgreich' || node?.status === 'Vorhanden')" [class.text-amber-700]="node?.exists && node?.status !== 'Bezahlt' && node?.status !== 'Erfolgreich' && node?.status !== 'Vorhanden'">{{node?.status}}</span>
                   </div>
                   <div class="mt-4 text-sm font-extrabold text-slate-950">{{node?.exists ? node?.identifier : (node?.nodeType === 'Invoice' ? 'Nicht verknüpft' : node?.status === 'Kein Zahlungseingang' ? 'Kein Zahlungseingang' : 'Fehlt')}}</div>
@@ -85,11 +86,11 @@ import { CaseDetailStore } from '../../core/stores/case-detail.store';
 
           @if (store.isOpen()) {
             <section class="app-card p-6">
-              <div class="text-xs font-bold uppercase tracking-wide text-slate-400">Action & Resolution</div>
+              <div class="text-xs font-bold uppercase tracking-wide text-slate-400">AKTION &amp; LÖSUNG</div>
               <h2 class="mt-1 text-lg font-extrabold text-slate-950">Fallbearbeitung</h2>
               <div class="mt-5 grid gap-4 lg:grid-cols-3">
-                <button type="button" [disabled]="store.actionLoading()" (click)="store.autoFix(data.id)" class="rounded-2xl border border-blue-200 bg-blue-50 p-5 text-left hover:border-blue-400 disabled:opacity-50"><div class="text-sm font-extrabold text-blue-900">Automatisch korrigieren (Action)</div><div class="mt-2 text-xs leading-5 text-blue-700">Eine unterstützte automatische Korrektur ausführen und im Audit-Protokoll dokumentieren.</div></button>
-                <button type="button" [disabled]="store.actionLoading()" (click)="resolve()" class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-left hover:border-emerald-400 disabled:opacity-50"><div class="text-sm font-extrabold text-emerald-900">Als gelöst markieren (Resolve)</div><div class="mt-2 text-xs leading-5 text-emerald-700">Den Fall mit einer kurzen Notiz abschließen.</div></button>
+                <button type="button" [disabled]="store.actionLoading()" (click)="store.autoFix(data.id)" class="rounded-2xl border border-blue-200 bg-blue-50 p-5 text-left hover:border-blue-400 disabled:opacity-50"><div class="text-sm font-extrabold text-blue-900">Automatisch korrigieren</div><div class="mt-2 text-xs leading-5 text-blue-700">Eine unterstützte automatische Korrektur ausführen und im Audit-Protokoll dokumentieren.</div></button>
+                <button type="button" [disabled]="store.actionLoading()" (click)="resolve()" class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-left hover:border-emerald-400 disabled:opacity-50"><div class="text-sm font-extrabold text-emerald-900">Als gelöst markieren</div><div class="mt-2 text-xs leading-5 text-emerald-700">Den Fall mit einer kurzen Notiz abschließen.</div></button>
                 <button type="button" [disabled]="store.actionLoading()" (click)="store.ignore(data.id)" class="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-left hover:border-slate-400 disabled:opacity-50"><div class="text-sm font-extrabold text-slate-900">Ignorieren</div><div class="mt-2 text-xs leading-5 text-slate-500">Diesen Fall aus der offenen Bearbeitung entfernen.</div></button>
               </div>
               <div class="mt-5"><label class="text-xs font-bold uppercase tracking-wide text-slate-400">Notiz des Buchhalters</label><textarea #note rows="3" class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-blue-400" placeholder="Kurze Begründung oder Bearbeitungsnotiz …"></textarea><button type="button" [disabled]="store.actionLoading()" (click)="resolve(note.value)" class="mt-3 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-extrabold text-white hover:bg-emerald-700 disabled:opacity-50">Als gelöst markieren</button></div>
@@ -100,7 +101,7 @@ import { CaseDetailStore } from '../../core/stores/case-detail.store';
         </main>
 
         <aside class="app-card p-6 xl:sticky xl:top-6">
-          <div class="text-xs font-bold uppercase tracking-wide text-slate-400">Audit Timeline</div>
+          <div class="text-xs font-bold uppercase tracking-wide text-slate-400">PRÜFPROTOKOLL</div>
           <h2 class="mt-1 text-lg font-extrabold text-slate-950">Fallhistorie</h2>
           <div class="mt-6">
             @for (event of data.timeline; track event.id; let last = $last) {
@@ -117,12 +118,18 @@ import { CaseDetailStore } from '../../core/stores/case-detail.store';
           </div>
         </aside>
       </div>
+          @if(selectedNode()){<div class="fixed inset-0 z-40 bg-slate-950/20" (click)="closeNode()"></div><aside class="fixed right-0 top-0 z-50 h-full w-full max-w-lg overflow-y-auto bg-white p-6 shadow-2xl"><div class="flex justify-between"><div><div class="text-xs font-bold uppercase tracking-wide text-slate-400">{{nodeLabel(selectedNode()!.nodeType)}}</div><h2 class="mt-1 text-xl font-extrabold">{{selectedNode()!.identifier||'Nicht verknüpft'}}</h2></div><button (click)="closeNode()" class="text-2xl text-slate-400">×</button></div><div class="mt-6 space-y-4 text-sm"><div><span class="text-slate-400">Status</span><div class="font-bold">{{selectedNode()!.status}}</div></div><div><span class="text-slate-400">Betrag</span><div class="font-bold">@if(selectedNode()!.amount!==null){{{selectedNode()!.amount|currency:selectedNode()!.currency:'symbol':'1.2-2':'de-DE'}}} @else {—}</div></div><div><span class="text-slate-400">Details</span><div class="font-bold">{{selectedNode()!.detail||'Keine weiteren Angaben.'}}</div></div><a [routerLink]="linkFor(selectedNode()!.nodeType)" class="block rounded-xl bg-slate-50 p-4 font-bold">→ {{nodeLabel(selectedNode()!.nodeType)}} öffnen</a></div></aside>}
     } @else {
       <div class="app-card p-10 text-center text-sm text-slate-500">Finanzfall nicht gefunden.</div>
     }
   `
 })
 export class CaseDetailPage {
+  readonly selectedNode=signal<import('../../core/models/api.models').FinancialGraphNode|null>(null);
+  nodeLabel(type:string|null|undefined){return ({Order:'BESTELLUNG',Payment:'ZAHLUNG',Invoice:'RECHNUNG'} as Record<string,string>)[type||'']??type??'BELEG'}
+  openNode(node:import('../../core/models/api.models').FinancialGraphNode|null){if(node)this.selectedNode.set(node)}
+  closeNode(){this.selectedNode.set(null)}
+  linkFor(type:string|null|undefined){return type==='Order'?'/orders':type==='Payment'?'/payments':'/invoices'}
   readonly store=inject(CaseDetailStore);
   private readonly route=inject(ActivatedRoute);
   constructor(){

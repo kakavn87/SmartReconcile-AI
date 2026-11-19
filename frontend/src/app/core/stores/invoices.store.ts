@@ -4,13 +4,20 @@ import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { pipe, switchMap, tap } from 'rxjs';
 import { tapResponse } from '@ngrx/operators';
 import { ApiService } from '../api/api.service';
-import { Invoice } from '../models/api.models';
+import { CreateInvoiceRequest, Invoice } from '../models/api.models';
 
 type State={items:Invoice[];loading:boolean;error:string|null};
 export const InvoicesStore=signalStore(
   {providedIn:'root'},
   withState<State>({items:[],loading:false,error:null}),
   withMethods((store,api=inject(ApiService))=>({
+    create:rxMethod<CreateInvoiceRequest>(pipe(
+      tap(()=>patchState(store,{loading:true,error:null})),
+      switchMap(request=>api.createInvoice(request).pipe(tapResponse({
+        next:item=>patchState(store,{items:[...store.items(),item],loading:false}),
+        error:()=>patchState(store,{loading:false,error:'Rechnung konnte nicht erfasst werden.'})
+      })))
+    )),
     load:rxMethod<void>(pipe(
       tap(()=>patchState(store,{items:[],loading:true,error:null})),
       switchMap(()=>api.invoices().pipe(tapResponse({
