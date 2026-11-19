@@ -41,7 +41,6 @@ public sealed class ShopifyClient(
               cancelledAt
               displayFinancialStatus
               totalPriceSet { shopMoney { amount currencyCode } }
-              customer { displayName email }
               transactions(first: 20) {
                 id
                 amountSet { shopMoney { amount currencyCode } }
@@ -156,8 +155,8 @@ public sealed class ShopifyClient(
         return new ShopifyOrder(
             order.Id,
             order.Name ?? order.Id,
-            order.Customer?.DisplayName ?? "Shopify Kunde",
-            order.Customer?.Email,
+            "Shopify Kunde",
+            null,
             amount,
             order.TotalPriceSet?.ShopMoney?.CurrencyCode ?? "EUR",
             financialStatus,
@@ -181,7 +180,6 @@ public sealed class ShopifyClient(
         [property: System.Text.Json.Serialization.JsonPropertyName("cancelledAt")] DateTime? CancelledAtUtc,
         [property: System.Text.Json.Serialization.JsonPropertyName("displayFinancialStatus")] string? DisplayFinancialStatus,
         [property: System.Text.Json.Serialization.JsonPropertyName("totalPriceSet")] MoneySet? TotalPriceSet,
-        [property: System.Text.Json.Serialization.JsonPropertyName("customer")] CustomerNode? Customer,
         [property: System.Text.Json.Serialization.JsonPropertyName("transactions")] List<TransactionNode>? Transactions);
     private sealed record TransactionNode(
         [property: System.Text.Json.Serialization.JsonPropertyName("id")] string Id,
@@ -212,5 +210,4 @@ public sealed class ShopifyClient(
 
         throw new FormatException($"Shopify amount '{value}' is not a valid invariant decimal.");
     }
-    private sealed record CustomerNode(string? DisplayName, string? Email);
 }
