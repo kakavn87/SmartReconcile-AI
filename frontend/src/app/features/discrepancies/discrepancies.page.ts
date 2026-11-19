@@ -12,7 +12,7 @@ import { DiscrepancyStore } from '../../core/stores/discrepancy.store';
       <div><h1 class="text-2xl font-bold tracking-tight">Abweichungen</h1><p class="mt-1 text-sm text-slate-500">Automatisch erkannte Fälle.</p></div>
       <div class="flex gap-2">
         <select class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" [value]="store.filterStatus()" (change)="store.setStatus($any($event.target).value)"><option value="Open">Offen</option><option value="Resolved">Gelöst</option><option value="Ignored">Ignoriert</option><option value="Alle">Alle</option></select>
-        <select class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" [value]="store.filterType()" (change)="store.setType($any($event.target).value)"><option value="Alle">Alle Typen</option><option value="MissingPayment">Fehlende Zahlung</option><option value="OrphanedPayment">Zahlung ohne Abschluss</option><option value="AmountMismatch">Betragsabweichung</option><option value="DuplicateInvoice">Doppelte Rechnung</option></select>
+        <select class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" [value]="store.filterType()" (change)="store.setType($any($event.target).value)"><option value="Alle">Alle Typen</option><option value="MissingPayment">Fehlende Zahlung</option><option value="OrphanedPayment">Zahlung ohne Abschluss</option><option value="AmountMismatch">Betragsabweichung</option><option value="DuplicatePayment">Doppelte Zahlung</option><option value="CurrencyMismatch">Währungsabweichung</option><option value="DuplicateInvoice">Doppelte Rechnung</option></select>
       </div>
     </div>
     <div class="mb-4"><input class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-slate-500" placeholder="Nach Vorgang oder Beschreibung suchen…" [value]="store.search()" (input)="store.setSearch($any($event.target).value)"></div>
@@ -30,6 +30,6 @@ import { DiscrepancyStore } from '../../core/stores/discrepancy.store';
 export class DiscrepanciesPage {
   readonly store=inject(DiscrepancyStore);
   constructor(){this.store.load();}
-  typeLabel(t:DiscrepancyType){return ({MissingPayment:'Fehlende Zahlung',OrphanedPayment:'Zahlung ohne Abschluss',AmountMismatch:'Betragsabweichung',DuplicateInvoice:'Doppelte Rechnung'} as Record<DiscrepancyType,string>)[t];}
+  typeLabel(t:DiscrepancyType){return ({MissingPayment:'Fehlende Zahlung',OrphanedPayment:'Zahlung ohne Abschluss',AmountMismatch:'Betragsabweichung',DuplicatePayment:'Doppelte Zahlung',CurrencyMismatch:'Währungsabweichung',DuplicateInvoice:'Doppelte Rechnung'} as Record<DiscrepancyType,string>)[t];}
   statusLabel(s:DiscrepancyStatus){return ({Open:'Offen',Resolved:'Gelöst',Ignored:'Ignoriert'} as Record<DiscrepancyStatus,string>)[s];}
 }
