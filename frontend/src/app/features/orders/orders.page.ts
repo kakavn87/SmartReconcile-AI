@@ -67,7 +67,11 @@ export class OrdersPage {
   openInvoice(){
     const item=this.selected();
     if(!item)return;
-    this.router.navigate(['/rechnungen'],{queryParams:{orderId:item.id,from:'bestellungen',fromId:item.id}});
+    this.router.navigate(['/rechnungen'],{
+      queryParams:item.invoiceId
+        ? {invoiceId:item.invoiceId,from:'bestellungen',fromId:item.id}
+        : {orderId:item.id,from:'bestellungen',fromId:item.id}
+    });
   }
   goBack(){
     const target=this.returnTarget();
