@@ -17,7 +17,7 @@ public sealed class ExportController(ICsvExporter exporter, IDatevExtfExporter d
     }
 
     [HttpGet("datev")]
-    public async Task<IActionResult> Datev([FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] bool onlyReconciled = true, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> Datev([FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] bool onlyReconciled = false, CancellationToken cancellationToken = default)
     {
         var tenant = ShopifyAuthenticationContext.GetTenant(HttpContext);
         if (tenant is null) return Unauthorized();
