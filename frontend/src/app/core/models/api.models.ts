@@ -62,6 +62,7 @@ export interface SystemHealth {
 
 export interface ControlTower {
   financialIntegrityScore:number;
+  financialIntegrityExplanation:string;
   totalRevenue:number;
   expectedCash:number;
   actualCash:number;
