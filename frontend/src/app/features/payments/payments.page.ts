@@ -31,6 +31,7 @@ export class PaymentsPage {
   private readonly router=inject(Router);
   readonly selected=signal<import('../../core/models/api.models').Payment|null>(null);
   readonly pendingId=signal<string|null>(null);
+  readonly pendingOrderId=signal<string|null>(null);
   readonly returnTarget=signal<{route:string;param:string;id:string}|null>(null);
 
   constructor(){
@@ -38,13 +39,19 @@ export class PaymentsPage {
     this.orders.load();
     this.route.queryParamMap.subscribe(params=>{
       this.pendingId.set(params.get('paymentId'));
+      this.pendingOrderId.set(params.get('orderId'));
       const from=params.get('from');
       const fromId=params.get('fromId');
       this.returnTarget.set(from && fromId ? this.returnTargetFor(from,fromId) : null);
     });
     effect(()=>{
       const id=this.pendingId();
-      const item=id ? this.store.items().find(x=>x.id===id) : null;
+      const orderId=this.pendingOrderId();
+      const item=id
+        ? this.store.items().find(x=>x.id===id)
+        : orderId
+          ? this.store.items().find(x=>x.orderId===orderId)
+          : null;
       if(item) this.selected.set(item);
     });
   }
@@ -52,7 +59,7 @@ export class PaymentsPage {
   open(x:import('../../core/models/api.models').Payment){this.selected.set(x)}
   close(){
     this.selected.set(null);
-    this.router.navigate([], {relativeTo:this.route, queryParams:{paymentId:null,from:null,fromId:null}, queryParamsHandling:'merge'});
+    this.router.navigate([], {relativeTo:this.route, queryParams:{paymentId:null,orderId:null,from:null,fromId:null}, queryParamsHandling:'merge'});
   }
   openOrder(){
     const item=this.selected();
