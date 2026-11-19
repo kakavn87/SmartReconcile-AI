@@ -52,5 +52,16 @@ public sealed class Payment
         };
     }
 
+    public void UpdateFromShopify(decimal amount, string currency, PaymentStatus status, DateTime paidAtUtc, PaymentKind kind, string? gateway, decimal feeAmount = 0m)
+    {
+        Amount = decimal.Round(Math.Max(amount, 0m), 2);
+        Currency = string.IsNullOrWhiteSpace(currency) ? Currency : currency.Trim().ToUpperInvariant();
+        Status = status;
+        PaidAtUtc = paidAtUtc;
+        Kind = kind;
+        Gateway = string.IsNullOrWhiteSpace(gateway) ? Gateway : gateway.Trim();
+        FeeAmount = decimal.Round(Math.Max(feeAmount, 0m), 2);
+    }
+
     public void ChangeStatus(PaymentStatus status) => Status = status;
 }
