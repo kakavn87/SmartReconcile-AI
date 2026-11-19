@@ -56,6 +56,7 @@ public sealed class SmartReconcileDbContext(DbContextOptions<SmartReconcileDbCon
             e.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<Order>().WithMany().HasForeignKey(x => x.OrderId).OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => x.OrderId);
+            e.HasIndex(x => new { x.TenantId, x.OrderId }).HasFilter("\"InvoiceType\" = 0 AND \"DocumentType\" = 0 AND \"OrderId\" IS NOT NULL").IsUnique();
             e.Property(x => x.Amount).HasPrecision(18, 2);
             e.Property(x => x.NetAmount).HasPrecision(18, 2);
             e.Property(x => x.TaxRate).HasPrecision(5, 2);
