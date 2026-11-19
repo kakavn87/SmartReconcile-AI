@@ -61,7 +61,7 @@ public sealed class ReconciliationService(
             if (hasSuccessfulPayment && order.Currency.Equals(shopCurrency, StringComparison.OrdinalIgnoreCase))
             {
                 var comparableNet = decimal.Round(
-                    comparablePayments.Where(p => p.Status == PaymentStatus.Succeeded && p.Kind is PaymentKind.Sale or PaymentKind.Capture).Sum(p => p.Amount) -
+                    comparablePayments.Where(p => p.Status == PaymentStatus.Succeeded && (p.Kind is PaymentKind.Sale or PaymentKind.Capture)).Sum(p => p.Amount) -
                     comparablePayments.Where(p => p.Status == PaymentStatus.Refunded && p.Kind == PaymentKind.Refund).Sum(p => p.Amount),
                     2);
 
