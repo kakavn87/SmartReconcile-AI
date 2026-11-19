@@ -29,6 +29,23 @@ public sealed class InvoicesController(IInvoiceService service, IAiAnalysisServi
     {
         var tenant = ShopifyAuthenticationContext.GetTenant(HttpContext);
         if (tenant is null) return Unauthorized();
+
+        if (request.InvoiceType == SmartReconcile.Domain.Enums.InvoiceType.Sales && request.OrderId.HasValue)
+        {
+            var existing = await db.Invoices
+                .AsNoTracking()
+                .Where(x => x.TenantId == tenant.Id
+                    && x.InvoiceType == SmartReconcile.Domain.Enums.InvoiceType.Sales
+                    && x.DocumentType == SmartReconcile.Domain.Enums.InvoiceDocumentType.Invoice
+                    && x.OrderId == request.OrderId.Value)
+                .OrderBy(x => x.InvoiceDateUtc)
+                .ThenBy(x => x.InvoiceNumber)
+                .FirstOrDefaultAsync(ct);
+
+            if (existing is not null)
+                return Ok(Map(existing));
+        }
+
         if (string.IsNullOrWhiteSpace(request.InvoiceNumber) && request.InvoiceType == SmartReconcile.Domain.Enums.InvoiceType.Sales)
             request = request with { InvoiceNumber = await numbers.NextAsync(tenant.Id, DateTime.UtcNow.Year, "RE", ct) };
         if (request.InvoiceDateUtc is null)
