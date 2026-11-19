@@ -15,6 +15,7 @@ public sealed class ShopifyWebhookService(
     IOptions<ShopifyOptions> options,
     SmartReconcileDbContext db,
     IReconciliationService reconciliation,
+    InvoiceAutomationService invoiceAutomation,
     ILogger<ShopifyWebhookService> logger) : IShopifyWebhookService
 {
     private readonly ShopifyOptions options = options.Value;
@@ -308,6 +309,7 @@ public sealed class ShopifyWebhookService(
                 : "EUR";
 
             order = Order.Create(orderNumber, customerName, email, amount, status, createdAt, currency: currency, tenantId: tenantId);
+            order.SetShopifyOrderId(externalId);
             await db.Orders.AddAsync(order, cancellationToken);
             await db.SaveChangesAsync(cancellationToken);
         }
@@ -332,6 +334,7 @@ public sealed class ShopifyWebhookService(
                 : order.CreatedAtUtc;
 
             order.UpdateFromShopify(amount, currency, status, createdAt);
+            order.SetShopifyOrderId(externalId);
         }
 
         if (!root.TryGetProperty("transactions", out var transactions) ||
@@ -517,7 +520,11 @@ public sealed class ShopifyWebhookService(
                     kind: PaymentKind.Refund,
                     gateway: gateway),
                 cancellationToken);
+
+            await invoiceAutomation.EnsureStornoInvoiceAsync(tenantId, order, refundId.ToString(), amount, currency, createdAt, cancellationToken);
         }
+
+        await invoiceAutomation.EnsureSalesInvoiceAsync(tenantId, order.ShopifyOrderId ?? order.OrderNumber, order, cancellationToken);
 
         var successfulRefundAmount = await db.Payments
             .Where(x => x.TenantId == tenantId && x.OrderId == order.Id && x.Kind == PaymentKind.Refund && x.Status == PaymentStatus.Refunded)
