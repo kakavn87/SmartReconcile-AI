@@ -376,7 +376,7 @@ public sealed class ShopifyWebhookService(
                     PaymentStatus.Succeeded,
                     paidAt,
                     currency: currency,
-                    kind: PaymentKind.Sale,
+                    kind: string.Equals(kind, "capture", StringComparison.OrdinalIgnoreCase) ? PaymentKind.Capture : PaymentKind.Sale,
                     gateway: gateway),
                 cancellationToken);
         }
