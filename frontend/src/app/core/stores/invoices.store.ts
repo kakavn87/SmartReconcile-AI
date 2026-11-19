@@ -4,7 +4,7 @@ import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { pipe, switchMap, tap } from 'rxjs';
 import { tapResponse } from '@ngrx/operators';
 import { ApiService } from '../api/api.service';
-import { Invoice } from '../models/api.models';
+import { CreateInvoiceRequest, Invoice } from '../models/api.models';
 
 type State={items:Invoice[];loading:boolean;error:string|null};
 export const InvoicesStore=signalStore(
