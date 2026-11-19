@@ -42,6 +42,7 @@ public sealed record SystemHealthDto(
 
 public sealed record ControlTowerDto(
     decimal FinancialIntegrityScore,
+    string FinancialIntegrityExplanation,
     decimal TotalRevenue,
     decimal ExpectedCash,
     decimal ActualCash,
