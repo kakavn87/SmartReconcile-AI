@@ -85,6 +85,17 @@ public sealed class ControlTowerService(
 
         var links = await caseLinks.GetForCaseAsync(tenantId, item.Id, cancellationToken);
         var timeline = await auditEvents.GetForCaseAsync(tenantId, item.Id, cancellationToken);
+
+        var changed = item.NormalizeLegacyStatus();
+        foreach (var auditEvent in timeline)
+            changed |= auditEvent.NormalizeLegacyEventType();
+
+        if (changed)
+        {
+            await cases.SaveAsync(cancellationToken);
+            await auditEvents.SaveAsync(cancellationToken);
+        }
+
         var discrepancy = item.DiscrepancyId.HasValue
             ? await discrepancies.GetByIdAsync(item.DiscrepancyId.Value, tenantId, cancellationToken)
             : null;
@@ -276,6 +287,10 @@ public sealed class ControlTowerService(
 
     private async Task EnsureFinancialCasesAsync(Guid tenantId, CancellationToken cancellationToken)
     {
+        var existingCases = await cases.GetAllAsync(tenantId, cancellationToken);
+        foreach (var existingCase in existingCases)
+            existingCase.NormalizeLegacyStatus();
+
         var discrepancyList = await discrepancies.GetAllAsync(tenantId, cancellationToken);
 
         foreach (var discrepancy in discrepancyList)
@@ -308,33 +323,45 @@ public sealed class ControlTowerService(
                     discrepancy.AffectedAmount)
             };
 
-            if (discrepancy.OrderId.HasValue)
+            var resolvedOrderId = discrepancy.OrderId;
+            var resolvedPaymentId = discrepancy.PaymentId;
+
+            var linkedPayment = resolvedPaymentId.HasValue
+                ? await payments.GetByIdAsync(resolvedPaymentId.Value, tenantId, cancellationToken)
+                : null;
+
+            if (linkedPayment is not null && !resolvedOrderId.HasValue)
+                resolvedOrderId = linkedPayment.OrderId;
+
+            var linkedOrder = resolvedOrderId.HasValue
+                ? await orders.GetByIdAsync(resolvedOrderId.Value, tenantId, cancellationToken)
+                : null;
+
+            if (linkedOrder is not null && !resolvedPaymentId.HasValue)
             {
-                var order = await orders.GetByIdAsync(discrepancy.OrderId.Value, tenantId, cancellationToken);
-                if (order is not null)
-                    links.Add(FinancialCaseLink.Create(
-                        tenantId,
-                        financialCase.Id,
-                        FinancialNodeType.Order,
-                        order.Id,
-                        "Bestellung",
-                        order.OrderNumber,
-                        order.TotalAmount));
+                linkedPayment = await payments.GetForOrderAsync(linkedOrder.Id, tenantId, cancellationToken);
+                resolvedPaymentId = linkedPayment?.Id;
             }
 
-            if (discrepancy.PaymentId.HasValue)
-            {
-                var payment = await payments.GetByIdAsync(discrepancy.PaymentId.Value, tenantId, cancellationToken);
-                if (payment is not null)
-                    links.Add(FinancialCaseLink.Create(
-                        tenantId,
-                        financialCase.Id,
-                        FinancialNodeType.Payment,
-                        payment.Id,
-                        "Zahlung",
-                        payment.TransactionId,
-                        payment.Amount));
-            }
+            if (linkedOrder is not null)
+                links.Add(FinancialCaseLink.Create(
+                    tenantId,
+                    financialCase.Id,
+                    FinancialNodeType.Order,
+                    linkedOrder.Id,
+                    "Bestellung",
+                    linkedOrder.OrderNumber,
+                    linkedOrder.TotalAmount));
+
+            if (linkedPayment is not null)
+                links.Add(FinancialCaseLink.Create(
+                    tenantId,
+                    financialCase.Id,
+                    FinancialNodeType.Payment,
+                    linkedPayment.Id,
+                    "Zahlung",
+                    linkedPayment.TransactionId,
+                    linkedPayment.Amount));
 
             if (discrepancy.InvoiceId.HasValue)
             {
@@ -404,13 +431,21 @@ public sealed class ControlTowerService(
         var paymentId = discrepancy?.PaymentId ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Payment)?.EntityId;
         var invoiceId = discrepancy?.InvoiceId ?? links.FirstOrDefault(x => x.NodeType == FinancialNodeType.Invoice)?.EntityId;
 
+        var payment = paymentId.HasValue
+            ? await payments.GetByIdAsync(paymentId.Value, tenantId, cancellationToken)
+            : null;
+
+        // A payment is the strongest source for the order relationship. This repairs
+        // legacy cases where PaymentId survived but OrderId was not persisted.
+        if (payment is not null && !orderId.HasValue)
+            orderId = payment.OrderId;
+
         var order = orderId.HasValue
             ? await orders.GetByIdAsync(orderId.Value, tenantId, cancellationToken)
             : null;
 
-        // Legacy discrepancies created before OrderId/PaymentId were persisted may still
-        // have null references. Recover the real order from the discrepancy description so
-        // older financial cases do not render an entirely empty document chain.
+        // Legacy discrepancies may have neither persisted reference. Recover the order
+        // from the existing discrepancy text before resolving its payment.
         if (order is null && discrepancy is not null)
         {
             var allOrders = await orders.GetAllAsync(tenantId, cancellationToken);
@@ -421,14 +456,13 @@ public sealed class ControlTowerService(
             orderId = order?.Id;
         }
 
-        // A discrepancy may not carry PaymentId when there is no payment (MissingPayment)
-        // or when the rule is order-level (e.g. CurrencyMismatch). In that case resolve
-        // the first real payment for the affected order instead of showing a false "Fehlt".
-        var payment = paymentId.HasValue
-            ? await payments.GetByIdAsync(paymentId.Value, tenantId, cancellationToken)
-            : orderId.HasValue
-                ? await payments.GetForOrderAsync(orderId.Value, tenantId, cancellationToken)
-                : null;
+        // If the order is known but PaymentId is missing, resolve the real payment
+        // belonging to that order instead of rendering a false missing payment.
+        if (payment is null && orderId.HasValue)
+        {
+            payment = await payments.GetForOrderAsync(orderId.Value, tenantId, cancellationToken);
+            paymentId = payment?.Id;
+        }
 
         var invoice = invoiceId.HasValue ? await invoices.GetByIdAsync(invoiceId.Value, tenantId, cancellationToken) : null;
 
