@@ -98,6 +98,64 @@ public static class IntegrationSchemaInitializer
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_Invoices_TenantId_InvoiceNumber" ON "Invoices" ("TenantId", "InvoiceNumber");
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_Invoices_TenantId_RefundId" ON "Invoices" ("TenantId", "RefundId") WHERE "RefundId" IS NOT NULL;
             CREATE INDEX IF NOT EXISTS "IX_Invoices_TenantId_ShopifyOrderId" ON "Invoices" ("TenantId", "ShopifyOrderId");
+
+            -- Enforce one immutable sales invoice per tenant/order. Before creating the
+            -- partial unique index, consolidate any legacy duplicate sales invoices by
+            -- keeping the earliest invoice number/date and repointing all known links.
+            CREATE TEMP TABLE "_InvoiceSalesDuplicates" ON COMMIT DROP AS
+            SELECT "Id" AS "DuplicateId",
+                   FIRST_VALUE("Id") OVER (
+                       PARTITION BY "TenantId", "OrderId"
+                       ORDER BY "InvoiceDateUtc", "InvoiceNumber", "Id"
+                   ) AS "KeepId"
+            FROM "Invoices"
+            WHERE "InvoiceType" = 0
+              AND "DocumentType" = 0
+              AND "OrderId" IS NOT NULL;
+
+            UPDATE "Discrepancies" d
+            SET "InvoiceId" = x."KeepId"
+            FROM "_InvoiceSalesDuplicates" x
+            WHERE d."InvoiceId" = x."DuplicateId"
+              AND x."DuplicateId" <> x."KeepId";
+
+            UPDATE "Invoices" i
+            SET "OriginalInvoiceId" = x."KeepId"
+            FROM "_InvoiceSalesDuplicates" x
+            WHERE i."OriginalInvoiceId" = x."DuplicateId"
+              AND x."DuplicateId" <> x."KeepId";
+
+            UPDATE "FinancialCaseLinks" l
+            SET "EntityId" = x."KeepId"
+            FROM "_InvoiceSalesDuplicates" x
+            WHERE l."NodeType" = 2
+              AND l."EntityId" = x."DuplicateId"
+              AND x."DuplicateId" <> x."KeepId";
+
+            UPDATE "FinancialGraphRelations" g
+            SET "FromEntityId" = CASE
+                    WHEN g."FromNodeType" = 2 THEN x."KeepId"
+                    ELSE g."FromEntityId"
+                END,
+                "ToEntityId" = CASE
+                    WHEN g."ToNodeType" = 2 THEN x."KeepId"
+                    ELSE g."ToEntityId"
+                END
+            FROM "_InvoiceSalesDuplicates" x
+            WHERE x."DuplicateId" <> x."KeepId"
+              AND ((g."FromNodeType" = 2 AND g."FromEntityId" = x."DuplicateId")
+                OR (g."ToNodeType" = 2 AND g."ToEntityId" = x."DuplicateId"));
+
+            DELETE FROM "Invoices" i
+            USING "_InvoiceSalesDuplicates" x
+            WHERE i."Id" = x."DuplicateId"
+              AND x."DuplicateId" <> x."KeepId";
+
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_Invoices_TenantId_OrderId_Sales"
+                ON "Invoices" ("TenantId", "OrderId")
+                WHERE "InvoiceType" = 0
+                  AND "DocumentType" = 0
+                  AND "OrderId" IS NOT NULL;
             ALTER TABLE "Invoices" DROP CONSTRAINT IF EXISTS "FK_Invoices_OriginalInvoice";
             ALTER TABLE "Invoices" ADD CONSTRAINT "FK_Invoices_OriginalInvoice" FOREIGN KEY ("OriginalInvoiceId") REFERENCES "Invoices" ("Id") ON DELETE RESTRICT;
             ALTER TABLE "Invoices" DROP CONSTRAINT IF EXISTS "FK_Invoices_Orders_OrderId";
