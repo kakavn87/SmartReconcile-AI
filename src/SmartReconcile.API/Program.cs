@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Diagnostics;
 using SmartReconcile.Application;
 using SmartReconcile.Infrastructure;
 using SmartReconcile.Infrastructure.Persistence;
@@ -30,6 +31,24 @@ var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string
 builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var feature = context.Features.Get<IExceptionHandlerFeature>();
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        if (feature?.Error is not null)
+            logger.LogError(feature.Error, "Unhandled API exception for {Method} {Path}.", context.Request.Method, context.Request.Path);
+
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            message = feature?.Error?.Message ?? "Interner Serverfehler."
+        });
+    });
+});
 
 using (var scope = app.Services.CreateScope())
 {
