@@ -32,6 +32,7 @@ public sealed class ShopifyClient(
 
         const string query = """
         query LatestOrders($after: String) {
+          shop { currencyCode }
           orders(first: 50, after: $after, sortKey: CREATED_AT, reverse: true) {
             nodes {
               id
@@ -46,6 +47,7 @@ public sealed class ShopifyClient(
                 amountSet { shopMoney { amount currencyCode } }
                 status
                 kind
+                gateway
                 createdAt
               }
             }
@@ -76,7 +78,7 @@ public sealed class ShopifyClient(
             var page = payload.Data?.Orders
                 ?? throw new InvalidOperationException("Shopify lieferte keine Bestellungen.");
 
-            orders.AddRange(page.Nodes?.Select(MapOrder) ?? []);
+            orders.AddRange(page.Nodes?.Select(x => MapOrder(x, payload.Data?.ShopCurrency ?? "EUR")) ?? []);
 
             if (!page.PageInfo.HasNextPage)
                 break;
@@ -135,7 +137,7 @@ public sealed class ShopifyClient(
         [property: System.Text.Json.Serialization.JsonPropertyName("expires_in")] int ExpiresInSeconds,
         [property: System.Text.Json.Serialization.JsonPropertyName("refresh_token_expires_in")] int RefreshTokenExpiresInSeconds);
 
-    private static ShopifyOrder MapOrder(OrderNode order)
+    private static ShopifyOrder MapOrder(OrderNode order, string shopCurrency)
     {
         var amount = ParseDecimal(order.TotalPriceSet?.ShopMoney?.Amount);
         var transactions = order.Transactions?.Select(x => new ShopifyTransaction(
@@ -144,6 +146,7 @@ public sealed class ShopifyClient(
             x.AmountSet?.ShopMoney?.CurrencyCode ?? "EUR",
             x.Status ?? "UNKNOWN",
             x.Kind ?? "UNKNOWN",
+            x.Gateway ?? "",
             0m,
             x.CreatedAtUtc ?? DateTime.UtcNow)).ToList() ?? [];
 
@@ -159,13 +162,18 @@ public sealed class ShopifyClient(
             order.TotalPriceSet?.ShopMoney?.CurrencyCode ?? "EUR",
             financialStatus,
             order.CreatedAtUtc,
+            shopCurrency,
             transactions);
     }
 
     private sealed record GraphQlResponse(GraphQlData? Data, List<GraphQlError>? Errors);
     private sealed record GraphQlError(string Message);
-    private sealed record GraphQlData(GraphQlOrders? Orders);
+    private sealed record GraphQlData([property: System.Text.Json.Serialization.JsonPropertyName("shop")] ShopNode? Shop, [property: System.Text.Json.Serialization.JsonPropertyName("orders")] GraphQlOrders? Orders)
+    {
+        public string ShopCurrency => Shop?.CurrencyCode ?? "EUR";
+    }
     private sealed record GraphQlOrders(List<OrderNode>? Nodes, PageInfo PageInfo);
+    private sealed record ShopNode([property: System.Text.Json.Serialization.JsonPropertyName("currencyCode")] string CurrencyCode);
     private sealed record OrderNode(
         string Id,
         [property: System.Text.Json.Serialization.JsonPropertyName("name")] string? Name,
@@ -180,6 +188,7 @@ public sealed class ShopifyClient(
         [property: System.Text.Json.Serialization.JsonPropertyName("amountSet")] MoneySet? AmountSet,
         [property: System.Text.Json.Serialization.JsonPropertyName("status")] string? Status,
         [property: System.Text.Json.Serialization.JsonPropertyName("kind")] string? Kind,
+        [property: System.Text.Json.Serialization.JsonPropertyName("gateway")] string? Gateway,
         [property: System.Text.Json.Serialization.JsonPropertyName("createdAt")] DateTime? CreatedAtUtc);
     private sealed record MoneySet([property: System.Text.Json.Serialization.JsonPropertyName("shopMoney")] Money? ShopMoney);
     private sealed record Money(
