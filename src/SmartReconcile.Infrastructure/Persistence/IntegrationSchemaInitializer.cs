@@ -43,6 +43,9 @@ public static class IntegrationSchemaInitializer
                 ON "Orders" ("TenantId");
 
             ALTER TABLE "Payments" ADD COLUMN IF NOT EXISTS "FeeAmount" numeric(18,2) NOT NULL DEFAULT 0;
+            ALTER TABLE "Payments" ADD COLUMN IF NOT EXISTS "Kind" integer NOT NULL DEFAULT 0;
+            ALTER TABLE "Payments" ADD COLUMN IF NOT EXISTS "Gateway" varchar(200);
+            ALTER TABLE "Payments" ADD COLUMN IF NOT EXISTS "Currency" varchar(3) NOT NULL DEFAULT 'EUR';
             -- Tenant isolation migration for legacy tables. Existing legacy rows belonged
             -- to the original demo tenant; where a relationship exists, prefer its owner.
             ALTER TABLE "Payments" ADD COLUMN IF NOT EXISTS "TenantId" uuid;
@@ -159,6 +162,8 @@ public static class IntegrationSchemaInitializer
             );
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_AccountingSettings_TenantId"
                 ON "AccountingSettings" ("TenantId");
+
+            ALTER TABLE "IntegrationConnections" ADD COLUMN IF NOT EXISTS "ShopCurrency" varchar(3) NOT NULL DEFAULT 'EUR';
 
             CREATE TABLE IF NOT EXISTS "IntegrationConnections" (
                 "Id" uuid NOT NULL PRIMARY KEY,
