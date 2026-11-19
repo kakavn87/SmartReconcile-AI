@@ -9,6 +9,7 @@ public sealed class Order
     public Guid Id { get; private set; }
     public Guid TenantId { get; private set; }
     public string OrderNumber { get; private set; } = string.Empty;
+    public string? ShopifyOrderId { get; private set; } = null;
     public string CustomerName { get; private set; } = string.Empty;
     public string CustomerEmail { get; private set; } = string.Empty;
     public decimal TotalAmount { get; private set; }
@@ -49,6 +50,11 @@ public sealed class Order
     }
 
     public void ChangeStatus(OrderStatus status) => Status = status;
+
+    public void SetShopifyOrderId(string? shopifyOrderId)
+    {
+        ShopifyOrderId = string.IsNullOrWhiteSpace(shopifyOrderId) ? null : shopifyOrderId.Trim();
+    }
 
     public void UpdateFromShopify(
         decimal totalAmount,
