@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using SmartReconcile.API.Authentication;
 using SmartReconcile.Application.Abstractions;
 using SmartReconcile.Application.DTOs;
