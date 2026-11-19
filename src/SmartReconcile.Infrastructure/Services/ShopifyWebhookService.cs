@@ -383,6 +383,9 @@ public sealed class ShopifyWebhookService(
                     gateway: gateway),
                 cancellationToken);
         }
+
+        if (order.Status == OrderStatus.Paid)
+            await invoiceAutomation.EnsureSalesInvoiceAsync(tenantId, externalId, order, cancellationToken);
     }
 
     private async Task CancelOrderAsync(Guid connectionId, string rawBody, CancellationToken cancellationToken)
