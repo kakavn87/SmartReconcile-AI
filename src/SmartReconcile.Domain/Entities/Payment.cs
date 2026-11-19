@@ -12,6 +12,8 @@ public sealed class Payment
     public string TransactionId { get; private set; } = string.Empty;
     public decimal Amount { get; private set; }
     public decimal FeeAmount { get; private set; }
+    public PaymentKind Kind { get; private set; }
+    public string? Gateway { get; private set; }
     public string Currency { get; private set; } = "EUR";
     public PaymentStatus Status { get; private set; }
     public DateTime PaidAtUtc { get; private set; }
@@ -24,7 +26,10 @@ public sealed class Payment
         decimal amount,
         PaymentStatus status,
         DateTime paidAtUtc,
-        decimal feeAmount = 0m)
+        decimal feeAmount = 0m,
+        string currency = "EUR",
+        PaymentKind kind = PaymentKind.Sale,
+        string? gateway = null)
     {
         if (tenantId == Guid.Empty) throw new ArgumentException("Tenant id is required.", nameof(tenantId));
         if (orderId == Guid.Empty) throw new ArgumentException("Order id is required.", nameof(orderId));
@@ -39,7 +44,9 @@ public sealed class Payment
             TransactionId = transactionId.Trim(),
             Amount = decimal.Round(amount, 2),
             FeeAmount = decimal.Round(feeAmount, 2),
-            Currency = "EUR",
+            Currency = string.IsNullOrWhiteSpace(currency) ? "EUR" : currency.Trim().ToUpperInvariant(),
+            Kind = kind,
+            Gateway = string.IsNullOrWhiteSpace(gateway) ? null : gateway.Trim(),
             Status = status,
             PaidAtUtc = paidAtUtc
         };
