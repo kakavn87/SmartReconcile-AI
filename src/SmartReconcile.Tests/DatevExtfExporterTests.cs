@@ -271,6 +271,55 @@ public sealed class DatevExtfExporterTests
     }
 
     [Fact]
+    public async Task Exporter_includes_usd_transaction_with_currency_and_rate()
+    {
+        await using var db = CreateDb();
+        var tenant = Tenant.Create("Test GmbH", "test-usd");
+        await db.Tenants.AddAsync(tenant);
+        var settings = AccountingSettings.CreateDefault(tenant.Id);
+        await db.AccountingSettings.AddAsync(settings);
+
+        var order = Order.Create(
+            "SHOPIFY-#1001",
+            "Shopify Kunde",
+            "shop@example.de",
+            100m,
+            OrderStatus.Paid,
+            new DateTime(2026, 11, 15, 10, 0, 0, DateTimeKind.Utc),
+            19m,
+            currency: "USD",
+            tenantId: tenant.Id);
+
+        var payment = Payment.Create(
+            tenant.Id,
+            order.Id,
+            "PAY-USD-1001",
+            100m,
+            PaymentStatus.Succeeded,
+            new DateTime(2026, 11, 15, 10, 5, 0, DateTimeKind.Utc),
+            currency: "USD");
+
+        await db.Orders.AddAsync(order);
+        await db.Payments.AddAsync(payment);
+        await db.SaveChangesAsync();
+
+        var exporter = new DatevExtfExporter(db, new TestAccountingSettingsService(settings));
+
+        var bytes = await exporter.ExportAsync(
+            tenant.Id,
+            new DateOnly(2026, 11, 1),
+            new DateOnly(2026, 11, 30),
+            false,
+            CancellationToken.None);
+
+        var text = Decode(bytes);
+
+        Assert.Contains("100,00;S;"USD";1,0000;", text);
+        Assert.Contains(";1360;8400;", text);
+        Assert.Contains("SHOPIFY-#1001", text);
+    }
+
+    [Fact]
     public async Task Only_reconciled_excludes_open_discrepancy()
     {
         await using var db = CreateDb();
