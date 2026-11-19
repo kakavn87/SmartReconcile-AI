@@ -298,8 +298,15 @@ public sealed class ControlTowerService(
             if (discrepancy.Status is DiscrepancyStatus.Ignored or DiscrepancyStatus.Resolved)
                 continue;
 
-            if (await cases.ExistsOpenForDiscrepancyAsync(tenantId, discrepancy.Id, cancellationToken))
+            var existingCase = existingCases.FirstOrDefault(x =>
+                x.DiscrepancyId == discrepancy.Id &&
+                x.Status is FinancialCaseStatus.Open or FinancialCaseStatus.Investigating);
+
+            if (existingCase is not null)
+            {
+                await EnsureCaseLinksAsync(tenantId, existingCase, discrepancy, cancellationToken);
                 continue;
+            }
 
             var financialCase = FinancialCase.Create(
                 tenantId,
@@ -419,6 +426,82 @@ public sealed class ControlTowerService(
         }
 
         await graph.SaveAsync(cancellationToken);
+    }
+
+    private async Task EnsureCaseLinksAsync(
+        Guid tenantId,
+        FinancialCase financialCase,
+        Discrepancy discrepancy,
+        CancellationToken cancellationToken)
+    {
+        var existingLinks = await caseLinks.GetForCaseAsync(tenantId, financialCase.Id, cancellationToken);
+        var linksToAdd = new List<FinancialCaseLink>();
+
+        var orderId = discrepancy.OrderId
+            ?? existingLinks.FirstOrDefault(x => x.NodeType == FinancialNodeType.Order)?.EntityId;
+        var paymentId = discrepancy.PaymentId
+            ?? existingLinks.FirstOrDefault(x => x.NodeType == FinancialNodeType.Payment)?.EntityId;
+
+        var payment = paymentId.HasValue
+            ? await payments.GetByIdAsync(paymentId.Value, tenantId, cancellationToken)
+            : null;
+
+        if (payment is not null)
+            orderId = payment.OrderId;
+
+        var order = orderId.HasValue
+            ? await orders.GetByIdAsync(orderId.Value, tenantId, cancellationToken)
+            : null;
+
+        if (payment is null && order is not null)
+        {
+            payment = await payments.GetForOrderAsync(order.Id, tenantId, cancellationToken);
+            paymentId = payment?.Id;
+        }
+
+        if (order is not null && existingLinks.All(x => x.NodeType != FinancialNodeType.Order))
+        {
+            linksToAdd.Add(FinancialCaseLink.Create(
+                tenantId,
+                financialCase.Id,
+                FinancialNodeType.Order,
+                order.Id,
+                "Bestellung",
+                order.OrderNumber,
+                order.TotalAmount));
+        }
+
+        if (payment is not null && existingLinks.All(x => x.NodeType != FinancialNodeType.Payment))
+        {
+            linksToAdd.Add(FinancialCaseLink.Create(
+                tenantId,
+                financialCase.Id,
+                FinancialNodeType.Payment,
+                payment.Id,
+                "Zahlung",
+                payment.TransactionId,
+                payment.Amount));
+        }
+
+        if (discrepancy.InvoiceId.HasValue &&
+            existingLinks.All(x => x.NodeType != FinancialNodeType.Invoice))
+        {
+            var invoice = await invoices.GetByIdAsync(discrepancy.InvoiceId.Value, tenantId, cancellationToken);
+            if (invoice is not null)
+            {
+                linksToAdd.Add(FinancialCaseLink.Create(
+                    tenantId,
+                    financialCase.Id,
+                    FinancialNodeType.Invoice,
+                    invoice.Id,
+                    "Rechnung",
+                    invoice.InvoiceNumber,
+                    invoice.Amount));
+            }
+        }
+
+        if (linksToAdd.Count > 0)
+            await caseLinks.AddRangeAsync(linksToAdd, cancellationToken);
     }
 
     private async Task<List<FinancialGraphNodeDto>> BuildGraphNodesAsync(
