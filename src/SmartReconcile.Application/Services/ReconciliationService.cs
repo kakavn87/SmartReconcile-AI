@@ -9,27 +9,129 @@ public sealed class ReconciliationService(
     IOrderRepository orders,
     IPaymentRepository payments,
     IInvoiceRepository invoices,
-    IDiscrepancyRepository discrepancies) : IReconciliationService
+    IDiscrepancyRepository discrepancies,
+    IIntegrationConnectionRepository connections) : IReconciliationService
 {
     public async Task<ReconciliationResult> ReconcileAsync(Guid tenantId, CancellationToken cancellationToken)
     {
         var orderList = await orders.GetAllAsync(tenantId, cancellationToken);
         var paymentList = await payments.GetAllAsync(tenantId, cancellationToken);
         var invoiceList = await invoices.GetAllAsync(tenantId, cancellationToken);
+        var connection = (await connections.GetForTenantAsync(tenantId, cancellationToken))
+            .FirstOrDefault(x => x.Provider == IntegrationProvider.Shopify && x.Status is not ConnectionStatus.Revoked and not ConnectionStatus.Disconnected);
+        var shopCurrency = connection?.ShopCurrency ?? "EUR";
+
         var created = new List<Discrepancy>();
         var now = DateTime.UtcNow;
 
         foreach (var order in orderList)
         {
-            var payment = paymentList.FirstOrDefault(p => p.OrderId == order.Id && p.TenantId == tenantId);
-            if (order.Status == OrderStatus.Pending && now - order.CreatedAtUtc > TimeSpan.FromHours(48) && (payment is null || payment.Status != PaymentStatus.Succeeded))
-                await AddIfMissing(tenantId, DiscrepancyType.MissingPayment, "Zahlung fehlt", $"Bestellung {order.OrderNumber} ist seit mehr als 48 Stunden offen und hat keine erfolgreiche Zahlung.", order.TotalAmount, order.Id, payment?.Id, null, created, cancellationToken);
+            var orderPayments = paymentList
+                .Where(p => p.OrderId == order.Id && p.TenantId == tenantId)
+                .ToList();
 
-            if (payment is not null && payment.Status == PaymentStatus.Succeeded && (order.Status == OrderStatus.Pending || order.Status == OrderStatus.OnHold))
-                await AddIfMissing(tenantId, DiscrepancyType.OrphanedPayment, "Erfolgreiche Zahlung ohne abgeschlossene Bestellung", $"Zahlung {payment.TransactionId} war erfolgreich, Bestellung {order.OrderNumber} steht aber weiterhin auf {order.Status}.", payment.Amount, order.Id, payment.Id, null, created, cancellationToken);
+            var successfulPayments = orderPayments
+                .Where(p => p.Status == PaymentStatus.Succeeded &&
+                            p.Kind is PaymentKind.Sale or PaymentKind.Capture)
+                .ToList();
 
-            if (payment is not null && payment.Status == PaymentStatus.Succeeded && Math.Abs(order.TotalAmount - payment.Amount) > 0.01m)
-                await AddIfMissing(tenantId, DiscrepancyType.AmountMismatch, "Betragsabweichung", $"Bestellung {order.OrderNumber}: {order.TotalAmount:0.00} EUR, Zahlung: {payment.Amount:0.00} EUR.", Math.Abs(order.TotalAmount - payment.Amount), order.Id, payment.Id, null, created, cancellationToken);
+            var refunds = orderPayments
+                .Where(p => p.Status == PaymentStatus.Refunded && p.Kind == PaymentKind.Refund)
+                .ToList();
+
+            var netCollected = decimal.Round(successfulPayments.Sum(p => p.Amount) - refunds.Sum(p => p.Amount), 2);
+            var hasSuccessfulPayment = successfulPayments.Count > 0;
+            var comparablePayments = orderPayments.Where(p => string.Equals(p.Currency, order.Currency, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            if (order.Status == OrderStatus.Pending && !hasSuccessfulPayment)
+            {
+                await AddIfMissing(
+                    tenantId,
+                    DiscrepancyType.MissingPayment,
+                    "Zahlung fehlt",
+                    $"Bestellung {order.OrderNumber} ist offen und hat keine erfolgreiche Zahlungstransaktion.",
+                    order.TotalAmount,
+                    order.Id,
+                    null,
+                    null,
+                    created,
+                    cancellationToken);
+            }
+
+            if (hasSuccessfulPayment && order.Currency.Equals(shopCurrency, StringComparison.OrdinalIgnoreCase))
+            {
+                var comparableNet = decimal.Round(
+                    comparablePayments.Where(p => p.Status == PaymentStatus.Succeeded && p.Kind is PaymentKind.Sale or PaymentKind.Capture).Sum(p => p.Amount) -
+                    comparablePayments.Where(p => p.Status == PaymentStatus.Refunded && p.Kind == PaymentKind.Refund).Sum(p => p.Amount),
+                    2);
+
+                if (Math.Abs(order.TotalAmount - comparableNet) > 0.01m)
+                {
+                    var anchorPayment = successfulPayments.FirstOrDefault();
+                    await AddIfMissing(
+                        tenantId,
+                        DiscrepancyType.AmountMismatch,
+                        "Betragsabweichung",
+                        $"Bestellung {order.OrderNumber}: {order.TotalAmount:0.00} {order.Currency}, netto Zahlungseingang: {comparableNet:0.00} {order.Currency}.",
+                        Math.Abs(order.TotalAmount - comparableNet),
+                        order.Id,
+                        anchorPayment?.Id,
+                        null,
+                        created,
+                        cancellationToken);
+                }
+            }
+
+            if (!order.Currency.Equals(shopCurrency, StringComparison.OrdinalIgnoreCase))
+            {
+                await AddIfMissing(
+                    tenantId,
+                    DiscrepancyType.CurrencyMismatch,
+                    "Währungsabweichung",
+                    $"Bestellung {order.OrderNumber} verwendet {order.Currency}; Shop-Währung ist {shopCurrency}.",
+                    order.TotalAmount,
+                    order.Id,
+                    successfulPayments.FirstOrDefault()?.Id,
+                    null,
+                    created,
+                    cancellationToken);
+            }
+
+            foreach (var duplicateGroup in successfulPayments
+                         .GroupBy(p => new { p.Amount, Currency = p.Currency.ToUpperInvariant(), Gateway = p.Gateway?.ToLowerInvariant() ?? string.Empty, p.Kind })
+                         .Where(g => g.Count() > 1))
+            {
+                foreach (var duplicate in duplicateGroup.Skip(1))
+                {
+                    await AddIfMissing(
+                        tenantId,
+                        DiscrepancyType.DuplicatePayment,
+                        "Doppelte Zahlung",
+                        $"Für Bestellung {order.OrderNumber} wurden mehrere identische {duplicate.Kind} Zahlungstransaktionen über {duplicate.Amount:0.00} {duplicate.Currency} beim Gateway {duplicate.Gateway ?? "unbekannt"} gefunden.",
+                        duplicate.Amount,
+                        order.Id,
+                        duplicate.Id,
+                        null,
+                        created,
+                        cancellationToken);
+                }
+            }
+
+            if (hasSuccessfulPayment && (order.Status == OrderStatus.Pending || order.Status == OrderStatus.OnHold))
+            {
+                var payment = successfulPayments.First();
+                await AddIfMissing(
+                    tenantId,
+                    DiscrepancyType.OrphanedPayment,
+                    "Erfolgreiche Zahlung ohne abgeschlossene Bestellung",
+                    $"Zahlung {payment.TransactionId} war erfolgreich, Bestellung {order.OrderNumber} steht aber weiterhin auf {order.Status}.",
+                    payment.Amount,
+                    order.Id,
+                    payment.Id,
+                    null,
+                    created,
+                    cancellationToken);
+            }
         }
 
         foreach (var group in invoiceList.GroupBy(i => i.InvoiceNumber, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1))
