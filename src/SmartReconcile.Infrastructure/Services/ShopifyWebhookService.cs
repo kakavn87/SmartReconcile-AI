@@ -360,6 +360,8 @@ public sealed class ShopifyWebhookService(
                 continue;
 
             var transactionAmount = ParseDecimal(transaction, "amount");
+            var gateway = transaction.TryGetProperty("gateway", out var gatewayProperty) ? gatewayProperty.GetString() : null;
+            var currency = root.TryGetProperty("currency", out var currencyProperty) ? currencyProperty.GetString() ?? "EUR" : "EUR";
             var paidAt = transaction.TryGetProperty("created_at", out var txCreated) &&
                          DateTime.TryParse(txCreated.GetString(), out var parsedPaid)
                 ? parsedPaid.ToUniversalTime()
@@ -372,7 +374,10 @@ public sealed class ShopifyWebhookService(
                     externalTransactionId,
                     transactionAmount,
                     PaymentStatus.Succeeded,
-                    paidAt),
+                    paidAt,
+                    currency: currency,
+                    kind: PaymentKind.Sale,
+                    gateway: gateway),
                 cancellationToken);
         }
     }
@@ -481,7 +486,7 @@ public sealed class ShopifyWebhookService(
 
                 successfulRefundAmount += ParseDecimal(transaction, "amount");
 
-                if (transaction.TryGetProperty("parent_id", out var parentId) &&
+                if (transaction.TryGetProperty("id", out var refundId) &&\n                !string.IsNullOrWhiteSpace(refundId.ToString()) &&\n                !string.IsNullOrWhiteSpace(orderId))\n            {\n                var order = await FindOrderByShopifyIdAsync(connectionId, orderId, cancellationToken);\n                if (order is not null)\n                {\n                    var refundTransactionId = $"SHOPIFY-{refundId}";\n                    if (!await db.Payments.AnyAsync(x => x.TenantId == tenantId && x.TransactionId == refundTransactionId, cancellationToken))\n                    {\n                        var gateway = transaction.TryGetProperty("gateway", out var gatewayProperty) ? gatewayProperty.GetString() : null;\n                        var currency = order.Currency;\n                        var createdAt = transaction.TryGetProperty("created_at", out var createdProperty) && DateTime.TryParse(createdProperty.GetString(), out var parsedCreated)\n                            ? parsedCreated.ToUniversalTime()\n                            : DateTime.UtcNow;\n                        await db.Payments.AddAsync(Payment.Create(tenantId, order.Id, refundTransactionId, ParseDecimal(transaction, "amount"), PaymentStatus.Refunded, createdAt, currency: currency, kind: PaymentKind.Refund, gateway: gateway), cancellationToken);\n                    }\n                }\n            }\n\n            if (transaction.TryGetProperty("parent_id", out var parentId) &&
                     parentId.ValueKind != JsonValueKind.Null &&
                     !string.IsNullOrWhiteSpace(parentId.ToString()))
                 {
