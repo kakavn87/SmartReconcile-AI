@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { CurrencyPipe, DatePipe } from '@angular/common';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { signal } from '@angular/core';
 import { CaseDetailStore } from '../../core/stores/case-detail.store';
 
@@ -66,7 +66,7 @@ import { CaseDetailStore } from '../../core/stores/case-detail.store';
           <section class="app-card p-6">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <div class="text-xs font-bold uppercase tracking-wide text-slate-400">Root Cause & KI-Untersuchung</div>
+                <div class="text-xs font-bold uppercase tracking-wide text-slate-400">Root Cause &amp; KI-Untersuchung</div>
                 <h2 class="mt-1 text-lg font-extrabold text-slate-950">Ursachenanalyse</h2>
               </div>
               @if (!store.hasAnalysis() && store.isOpen()) {
@@ -118,7 +118,7 @@ import { CaseDetailStore } from '../../core/stores/case-detail.store';
           </div>
         </aside>
       </div>
-          @if(selectedNode()){<div class="fixed inset-0 z-40 bg-slate-950/20" (click)="closeNode()"></div><aside class="fixed right-0 top-0 z-50 h-full w-full max-w-lg overflow-y-auto bg-white p-6 shadow-2xl"><div class="flex justify-between"><div><div class="text-xs font-bold uppercase tracking-wide text-slate-400">{{nodeLabel(selectedNode()!.nodeType)}}</div><h2 class="mt-1 text-xl font-extrabold">{{selectedNode()!.identifier||'Nicht verknüpft'}}</h2></div><button (click)="closeNode()" class="text-2xl text-slate-400">×</button></div><div class="mt-6 space-y-4 text-sm"><div><span class="text-slate-400">Status</span><div class="font-bold">{{selectedNode()!.status}}</div></div><div><span class="text-slate-400">Betrag</span><div class="font-bold">@if(selectedNode()!.amount!==null){{{selectedNode()!.amount|currency:selectedNode()!.currency:'symbol':'1.2-2':'de-DE'}}} @else {—}</div></div><div><span class="text-slate-400">Details</span><div class="font-bold">{{selectedNode()!.detail||'Keine weiteren Angaben.'}}</div></div><a [routerLink]="linkFor(selectedNode()!.nodeType)" class="block rounded-xl bg-slate-50 p-4 font-bold">→ {{nodeLabel(selectedNode()!.nodeType)}} öffnen</a></div></aside>}
+          @if(selectedNode()){<div class="fixed inset-0 z-40 bg-slate-950/20" (click)="closeNode()"></div><aside class="fixed right-0 top-0 z-50 h-full w-full max-w-lg overflow-y-auto bg-white p-6 shadow-2xl"><div class="flex justify-between"><div><div class="text-xs font-bold uppercase tracking-wide text-slate-400">{{nodeLabel(selectedNode()!.nodeType)}}</div><h2 class="mt-1 text-xl font-extrabold">{{selectedNode()!.identifier||'Nicht verknüpft'}}</h2></div><button type="button" (click)="closeNode()" class="text-2xl text-slate-400">×</button></div><div class="mt-6 space-y-4 text-sm"><div><span class="text-slate-400">Status</span><div class="font-bold">{{selectedNode()!.status}}</div></div><div><span class="text-slate-400">Betrag</span><div class="font-bold">@if(selectedNode()!.amount!==null){{{selectedNode()!.amount|currency:selectedNode()!.currency:'symbol':'1.2-2':'de-DE'}}} @else {—}</div></div><div><span class="text-slate-400">Details</span><div class="font-bold">{{selectedNode()!.detail||'Keine weiteren Angaben.'}}</div></div><a [routerLink]="linkFor(selectedNode()!.nodeType, selectedNode()!.entityId)" class="block rounded-xl bg-slate-50 p-4 font-bold">→ {{nodeLabel(selectedNode()!.nodeType)}} öffnen</a></div></aside>}
     } @else {
       <div class="app-card p-10 text-center text-sm text-slate-500">Finanzfall nicht gefunden.</div>
     }
@@ -126,10 +126,16 @@ import { CaseDetailStore } from '../../core/stores/case-detail.store';
 })
 export class CaseDetailPage {
   readonly selectedNode=signal<import('../../core/models/api.models').FinancialGraphNode|null>(null);
+  private readonly router=inject(Router);
   nodeLabel(type:string|null|undefined){return ({Order:'BESTELLUNG',Payment:'ZAHLUNG',Invoice:'RECHNUNG'} as Record<string,string>)[type||'']??type??'BELEG'}
   openNode(node:import('../../core/models/api.models').FinancialGraphNode|null){if(node)this.selectedNode.set(node)}
   closeNode(){this.selectedNode.set(null)}
-  linkFor(type:string|null|undefined){return type==='Order'?'/orders':type==='Payment'?'/payments':'/invoices'}
+  linkFor(type:string|null|undefined,entityId:string|null|undefined){
+    if(!entityId) return this.router.createUrlTree(['/dashboard']);
+    const route=type==='Order'?'/bestellungen':type==='Payment'?'/zahlungen':'/rechnungen';
+    const queryParam=type==='Order'?'orderId':type==='Payment'?'paymentId':'invoiceId';
+    return this.router.createUrlTree([route],{queryParams:{[queryParam]:entityId}});
+  }
   readonly store=inject(CaseDetailStore);
   private readonly route=inject(ActivatedRoute);
   constructor(){
