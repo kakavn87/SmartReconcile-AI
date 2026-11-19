@@ -34,7 +34,7 @@ import { Invoice, InvoiceType, Order } from '../../core/models/api.models';
         <label class="block text-sm font-semibold">Rechnungsnummer<input #number class="mt-1 w-full rounded-xl border p-3" /></label>
         <div class="grid grid-cols-2 gap-3"><label class="block text-sm font-semibold">Betrag<input #amount type="number" step="0.01" class="mt-1 w-full rounded-xl border p-3" /></label><label class="block text-sm font-semibold">Währung<input #currency value="EUR" maxlength="3" class="mt-1 w-full rounded-xl border p-3" /></label></div>
         <label class="block text-sm font-semibold">Rechnungsdatum<input #date type="date" class="mt-1 w-full rounded-xl border p-3" /></label>
-        @if(type.value==='Sales'){<label class="block text-sm font-semibold">Bestellung (optional)<select #order class="mt-1 w-full rounded-xl border p-3"><option value="">Nicht verknüpft (Shopify-Direktabgleich)</option>@for(o of orders.items();track o.id){<option [value]="o.id">{{o.orderNumber}}</option>}</select></label>}
+        <label class="block text-sm font-semibold">Bestellung (optional)<select #order [disabled]="type.value==='Purchase'" class="mt-1 w-full rounded-xl border p-3"><option value="">Nicht verknüpft (Shopify-Direktabgleich)</option>@for(o of orders.items();track o.id){<option [value]="o.id">{{o.orderNumber}}</option>}</select></label>
         <button type="button" (click)="create(type.value,partnerName.value,number.value,+amount.value,currency.value,date.value,type.value==='Sales'?order?.value??null:null)" class="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white">Rechnung speichern &amp; abstimmen</button>
       </div>
     </aside>}
