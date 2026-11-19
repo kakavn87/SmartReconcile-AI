@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { CurrencyPipe, DatePipe } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import { InvoicesStore } from '../../core/stores/invoices.store';
 import { OrdersStore } from '../../core/stores/orders.store';
-import { Invoice, InvoiceType, Order } from '../../core/models/api.models';
+import { Invoice, InvoiceType } from '../../core/models/api.models';
 import { ApiService } from '../../core/api/api.service';
 
 @Component({
@@ -22,9 +23,10 @@ import { ApiService } from '../../core/api/api.service';
     </table></div></div>}
 
     @if(drawer()){<div class="fixed inset-0 z-40 bg-slate-950/20" (click)="closeDrawer()"></div><aside class="fixed right-0 top-0 z-50 h-full w-full max-w-lg overflow-y-auto bg-white p-6 shadow-2xl">
+      @if(returnTarget()){<button type="button" (click)="goBack()" class="mb-5 text-sm font-bold text-slate-500 hover:text-slate-900">← Zurück</button>}
       <div class="flex items-center justify-between"><div><div class="text-xs font-bold uppercase tracking-wide text-slate-400">RECHNUNG</div><h2 class="mt-1 text-xl font-extrabold">{{drawer()!.invoiceNumber}}</h2></div><button type="button" (click)="closeDrawer()" class="text-2xl text-slate-400">×</button></div>
       <div class="mt-6 grid gap-3 text-sm"><div><span class="text-slate-400">Art</span><div class="font-bold">{{typeLabel(drawer()!.invoiceType)}}{{drawer()!.documentType==='Storno'?' · Stornorechnung':''}}</div></div><div><span class="text-slate-400">Kunde / Lieferant</span><div class="font-bold">{{partner(drawer()!)}}</div></div><div><span class="text-slate-400">Netto / USt / Brutto</span><div class="font-bold">{{drawer()!.netAmount|currency:drawer()!.currency:'symbol':'1.2-2':'de-DE'}} · {{drawer()!.taxAmount|currency:drawer()!.currency:'symbol':'1.2-2':'de-DE'}} · {{drawer()!.grossAmount|currency:drawer()!.currency:'symbol':'1.2-2':'de-DE'}}</div></div><div><span class="text-slate-400">Datum</span><div class="font-bold">{{drawer()!.invoiceDateUtc|date:'dd.MM.yyyy'}}</div></div></div>
-      @if(drawer()!.orderId){<div class="mt-6 rounded-xl bg-slate-50 p-4 text-sm"><div class="font-bold">BESTELLUNG</div><div class="mt-1">{{drawer()!.orderId}}</div></div>}<button type="button" (click)="downloadPdf(drawer()!)" class="mt-5 w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white">PDF herunterladen</button>
+      @if(drawer()!.orderId){<div class="mt-6 rounded-xl bg-slate-50 p-4 text-sm"><div class="font-bold">BESTELLUNG</div><div class="mt-1">{{orderLabel(drawer()!.orderId!)}}</div></div>}<button type="button" (click)="downloadPdf(drawer()!)" class="mt-5 w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white">PDF herunterladen</button>
     </aside>}
 
     @if(createOpen()){<div class="fixed inset-0 z-40 bg-slate-950/20" (click)="closeCreate()"></div><aside class="fixed right-0 top-0 z-50 h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-2xl">
@@ -45,20 +47,62 @@ export class InvoicesPage {
   readonly store=inject(InvoicesStore);
   readonly api=inject(ApiService);
   readonly orders=inject(OrdersStore);
+  private readonly route=inject(ActivatedRoute);
+  private readonly router=inject(Router);
   readonly drawer=signal<Invoice|null>(null);
   readonly createOpen=signal(false);
+  readonly pendingId=signal<string|null>(null);
+  readonly pendingOrderId=signal<string|null>(null);
+  readonly returnTarget=signal<{route:string;param:string;id:string}|null>(null);
   readonly invoiceDraft=signal({invoiceNumber:'',partnerName:'',amount:0,currency:'EUR',invoiceDate:new Date().toISOString().slice(0,10)});
-  constructor(){this.store.load();this.orders.load();}
+
+  constructor(){
+    this.store.load();
+    this.orders.load();
+    this.route.queryParamMap.subscribe(params=>{
+      this.pendingId.set(params.get('invoiceId'));
+      this.pendingOrderId.set(params.get('orderId'));
+      const from=params.get('from');
+      const fromId=params.get('fromId');
+      this.returnTarget.set(from && fromId ? this.returnTargetFor(from,fromId) : null);
+    });
+    effect(()=>{
+      const invoiceId=this.pendingId();
+      const orderId=this.pendingOrderId();
+      const items=this.store.items();
+      const invoice=invoiceId
+        ? items.find(x=>x.id===invoiceId)
+        : orderId
+          ? (items.find(x=>x.orderId===orderId && x.documentType==='Invoice') ?? items.find(x=>x.orderId===orderId))
+          : null;
+      if(invoice) this.drawer.set(invoice);
+    });
+  }
+
   openCreate(){this.invoiceDraft.set({invoiceNumber:'',partnerName:'',amount:0,currency:'EUR',invoiceDate:new Date().toISOString().slice(0,10)});this.createOpen.set(true)}
   closeCreate(){this.createOpen.set(false)}
   openDetail(x:Invoice){this.drawer.set(x)}
-  closeDrawer(){this.drawer.set(null)}
+  closeDrawer(){
+    this.drawer.set(null);
+    this.router.navigate([], {relativeTo:this.route, queryParams:{invoiceId:null,orderId:null,from:null,fromId:null}, queryParamsHandling:'merge'});
+  }
   partner(x:Invoice){return x.invoiceType==='Sales'?(x.customerName||'—'):(x.supplierName||'—')}
+  orderLabel(orderId:string){return this.orders.items().find(x=>x.id===orderId)?.orderNumber ?? orderId}
   typeLabel(x:InvoiceType){return x==='Sales'?'Ausgangsrechnung':'Eingangsrechnung'}
   selectOrder(orderId:string):void { const order=this.orders.items().find(x=>x.id===orderId); if(!order)return; this.invoiceDraft.set({invoiceNumber:'',partnerName:order.customerName,amount:order.totalAmount,currency:order.currency,invoiceDate:new Date(order.createdAtUtc).toISOString().slice(0,10)}); }
   downloadPdf(invoice:Invoice):void { this.api.invoicePdf(invoice.id).subscribe(blob=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`Rechnung-${invoice.invoiceNumber}.pdf`;a.click();URL.revokeObjectURL(url);}); }
   create(type:string,partner:string,number:string,amount:number,currency:string,date:string,orderId:string|null){
     this.store.create({invoiceType:type as InvoiceType,partnerName:partner,invoiceNumber:number,amount,currency,invoiceDateUtc:date||null,rawText:'',orderId});
     this.createOpen.set(false);
+  }
+  goBack(){
+    const target=this.returnTarget();
+    if(!target)return;
+    this.router.navigate([target.route],{queryParams:{[target.param]:target.id}});
+  }
+  private returnTargetFor(from:string,id:string):{route:string;param:string;id:string}|null{
+    if(from==='zahlungen') return {route:'/zahlungen',param:'paymentId',id};
+    if(from==='bestellungen') return {route:'/bestellungen',param:'orderId',id};
+    return null;
   }
 }
