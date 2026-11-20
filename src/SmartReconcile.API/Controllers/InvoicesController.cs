@@ -43,7 +43,7 @@ public sealed class InvoicesController(IInvoiceService service, IAiAnalysisServi
             // sales invoice. Cancellation is only reversed by a Stornorechnung
             // when an original sales invoice already exists.
             if (order.Status == SmartReconcile.Domain.Enums.OrderStatus.Cancelled)
-                return Conflict("Für eine stornierte Bestellung kann keine neue Ausgangsrechnung erstellt werden. Prüfen Sie die vorhandene Rechnung bzw. Stornorechnung.");
+                return BadRequest("Für eine stornierte Bestellung kann keine Ausgangsrechnung erstellt werden.");
 
             var existing = await db.Invoices
                 .AsNoTracking()
