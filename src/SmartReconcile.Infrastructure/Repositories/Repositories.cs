@@ -28,6 +28,7 @@ public sealed class InvoiceRepository(SmartReconcileDbContext db) : IInvoiceRepo
     public Task<List<Invoice>> GetAllAsync(Guid tenantId, CancellationToken ct) => db.Invoices.AsNoTracking().Where(x => x.TenantId == tenantId).OrderByDescending(x => x.InvoiceDateUtc).ToListAsync(ct);
     public Task<Invoice?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken ct) => db.Invoices.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tenantId, ct);
     public Task<Invoice?> GetSalesInvoiceForOrderAsync(Guid orderId, Guid tenantId, CancellationToken ct) => db.Invoices.AsNoTracking().Where(x => x.TenantId == tenantId && x.InvoiceType == InvoiceType.Sales && x.DocumentType == InvoiceDocumentType.Invoice && x.OrderId == orderId).OrderBy(x => x.InvoiceDateUtc).ThenBy(x => x.InvoiceNumber).FirstOrDefaultAsync(ct);
+    public Task<List<Invoice>> GetStornoInvoicesForOrderAsync(Guid orderId, Guid tenantId, CancellationToken ct) => db.Invoices.AsNoTracking().Where(x => x.TenantId == tenantId && x.InvoiceType == InvoiceType.Sales && x.DocumentType == InvoiceDocumentType.Storno && x.OrderId == orderId).OrderByDescending(x => x.InvoiceDateUtc).ThenByDescending(x => x.InvoiceNumber).ToListAsync(ct);
     public async Task AddAsync(Invoice invoice, CancellationToken ct) { await db.Invoices.AddAsync(invoice, ct); await db.SaveChangesAsync(ct); }
     public Task<int> CountAsync(Guid tenantId, CancellationToken ct) => db.Invoices.CountAsync(x => x.TenantId == tenantId, ct);
 }

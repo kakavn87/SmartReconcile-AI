@@ -25,6 +25,7 @@ public interface IInvoiceRepository
     Task<List<Invoice>> GetAllAsync(Guid tenantId, CancellationToken cancellationToken);
     Task<Invoice?> GetByIdAsync(Guid id, Guid tenantId, CancellationToken cancellationToken);
     Task<Invoice?> GetSalesInvoiceForOrderAsync(Guid orderId, Guid tenantId, CancellationToken cancellationToken);
+    Task<List<Invoice>> GetStornoInvoicesForOrderAsync(Guid orderId, Guid tenantId, CancellationToken cancellationToken);
     Task AddAsync(Invoice invoice, CancellationToken cancellationToken);
     Task<int> CountAsync(Guid tenantId, CancellationToken cancellationToken);
 }

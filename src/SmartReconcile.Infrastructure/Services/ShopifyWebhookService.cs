@@ -125,7 +125,7 @@ public sealed class ShopifyWebhookService(
                 break;
 
             case "orders/cancelled":
-                await CancelOrderAsync(webhook.ConnectionId, webhook.PayloadJson, cancellationToken);
+                await CancelOrderAsync(webhook.ConnectionId, webhook.PayloadJson, webhook.ExternalEventId, webhook.ReceivedAtUtc, cancellationToken);
                 break;
 
             case "orders/delete":
@@ -400,7 +400,12 @@ public sealed class ShopifyWebhookService(
             await invoiceAutomation.EnsureSalesInvoiceAsync(tenantId, externalId, order, cancellationToken);
     }
 
-    private async Task CancelOrderAsync(Guid connectionId, string rawBody, CancellationToken cancellationToken)
+    private async Task CancelOrderAsync(
+        Guid connectionId,
+        string rawBody,
+        string cancellationEventId,
+        DateTime cancellationDateUtc,
+        CancellationToken cancellationToken)
     {
         using var document = JsonDocument.Parse(rawBody);
         var root = document.RootElement;
@@ -434,7 +439,20 @@ public sealed class ShopifyWebhookService(
                 cancellationToken);
         }
 
-        order?.ChangeStatus(OrderStatus.Cancelled);
+        if (order is null)
+            return;
+
+        order.ChangeStatus(OrderStatus.Cancelled);
+
+        // Only reverse an already-issued sales invoice. The automation service
+        // calculates the remaining unreversed amount, so a cancellation after a
+        // partial refund cannot create a duplicate/negative reversal.
+        await invoiceAutomation.EnsureCancellationStornoInvoiceAsync(
+            tenantId,
+            order,
+            cancellationEventId,
+            cancellationDateUtc,
+            cancellationToken);
     }
 
     private async Task DeleteOrderAsync(
@@ -510,9 +528,6 @@ public sealed class ShopifyWebhookService(
                 continue;
 
             var transactionId = $"SHOPIFY-{refundId}";
-            if (await db.Payments.AnyAsync(x => x.TenantId == tenantId && x.TransactionId == transactionId, cancellationToken))
-                continue;
-
             var amount = ParseDecimal(transaction, "amount");
             var gateway = transaction.TryGetProperty("gateway", out var gatewayProperty) ? gatewayProperty.GetString() : null;
             var currency = root.TryGetProperty("currency", out var currencyProperty)
@@ -523,23 +538,33 @@ public sealed class ShopifyWebhookService(
                 ? parsedCreated.ToUniversalTime()
                 : DateTime.UtcNow;
 
-            await db.Payments.AddAsync(
-                Payment.Create(
-                    tenantId,
-                    order.Id,
-                    transactionId,
-                    amount,
-                    PaymentStatus.Refunded,
-                    createdAt,
-                    currency: currency,
-                    kind: PaymentKind.Refund,
-                    gateway: gateway),
+            if (!await db.Payments.AnyAsync(
+                    x => x.TenantId == tenantId && x.TransactionId == transactionId,
+                    cancellationToken))
+            {
+                await db.Payments.AddAsync(
+                    Payment.Create(
+                        tenantId,
+                        order.Id,
+                        transactionId,
+                        amount,
+                        PaymentStatus.Refunded,
+                        createdAt,
+                        currency: currency,
+                        kind: PaymentKind.Refund,
+                        gateway: gateway),
+                    cancellationToken);
+            }
+
+            await invoiceAutomation.EnsureStornoInvoiceAsync(
+                tenantId,
+                order,
+                refundId.ToString(),
+                amount,
+                currency,
+                createdAt,
                 cancellationToken);
-
-            await invoiceAutomation.EnsureStornoInvoiceAsync(tenantId, order, refundId.ToString(), amount, currency, createdAt, cancellationToken);
         }
-
-        await invoiceAutomation.EnsureSalesInvoiceAsync(tenantId, order.ShopifyOrderId ?? order.OrderNumber, order, cancellationToken);
 
         var successfulRefundAmount = await db.Payments
             .Where(x => x.TenantId == tenantId && x.OrderId == order.Id && x.Kind == PaymentKind.Refund && x.Status == PaymentStatus.Refunded)
