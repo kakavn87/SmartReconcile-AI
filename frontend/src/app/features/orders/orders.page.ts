@@ -27,6 +27,11 @@ import { ApiService } from '../../core/api/api.service';
           <button type="button" (click)="createInvoice(selected()!);$event.stopPropagation()" class="w-full rounded-xl bg-slate-950 p-4 text-left font-bold text-white">+ Rechnung aus Bestellung erzeugen</button>
           <button type="button" (click)="openInvoice()" class="block w-full rounded-xl bg-slate-50 p-4 text-left font-bold hover:bg-slate-100">→ Rechnung öffnen</button>
         }
+        @for(storno of selected()!.stornoInvoices; track storno.id){
+          <button type="button" (click)="openStornoInvoice(storno.id)" class="block w-full rounded-xl bg-rose-50 p-4 text-left font-bold text-rose-800 hover:bg-rose-100">
+            Stornorechnung <span class="ml-1">{{storno.invoiceNumber}}</span> öffnen
+          </button>
+        }
       </div></aside>}
   `
 })
@@ -72,6 +77,11 @@ export class OrdersPage {
         ? {invoiceId:item.invoiceId,from:'bestellungen',fromId:item.id}
         : {orderId:item.id,from:'bestellungen',fromId:item.id}
     });
+  }
+  openStornoInvoice(invoiceId:string){
+    const item=this.selected();
+    if(!item)return;
+    this.router.navigate(['/rechnungen'],{queryParams:{invoiceId,from:'bestellungen',fromId:item.id}});
   }
   goBack(){
     const target=this.returnTarget();
