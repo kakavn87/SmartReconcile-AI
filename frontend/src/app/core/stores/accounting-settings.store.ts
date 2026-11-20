@@ -4,6 +4,7 @@ import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { pipe, switchMap, tap } from 'rxjs';
 import { tapResponse } from '@ngrx/operators';
 import { ApiService } from '../api/api.service';
+import { ToastService } from '../services/toast.service';
 import { AccountingSettings, ChartOfAccounts, UpdateAccountingSettingsRequest } from '../models/api.models';
 
 interface PreviewBooking {
@@ -40,7 +41,7 @@ export const AccountingSettingsStore = signalStore(
   withComputed(({ data }) => ({
     loaded:computed(() => data() !== null)
   })),
-  withMethods((store, api=inject(ApiService)) => ({
+  withMethods((store, api=inject(ApiService), toast=inject(ToastService)) => ({
     load:rxMethod<void>(pipe(
       tap(() => patchState(store,{data:null,loading:true,error:null,preview:[],exportReady:false,exportError:null})),
       switchMap(() => api.accountingSettings().pipe(
@@ -54,8 +55,8 @@ export const AccountingSettingsStore = signalStore(
       tap(() => patchState(store,{saving:true,error:null})),
       switchMap(request => api.updateAccountingSettings(request).pipe(
         tapResponse({
-          next:data => patchState(store,{data,saving:false}),
-          error:(response:any) => patchState(store,{saving:false,error:response?.error?.message ?? 'Die Buchhaltungseinstellungen konnten nicht gespeichert werden.'})
+          next:data => { patchState(store,{data,saving:false}); toast.success('Einstellungen erfolgreich gespeichert.'); },
+          error:(response:any) => { const message=response?.error?.message ?? 'Die Buchhaltungseinstellungen konnten nicht gespeichert werden.'; patchState(store,{saving:false,error:message}); toast.error(message); }
         })
       ))
     )),
@@ -76,10 +77,11 @@ export const AccountingSettingsStore = signalStore(
               const bookingLines=lines.slice(2).slice(0,10);
               const preview=bookingLines.map(line => parseBooking(line)).filter((row):row is PreviewBooking => row !== null);
               patchState(store,{exporting:false,preview,exportReady:true});
+              toast.success('DATEV-Buchungsstapel erfolgreich exportiert.');
               downloadBlob(new Blob([buffer],{type:'text/csv;charset=windows-1252'}),filename);
             }).catch(() => patchState(store,{exporting:false,exportError:'Die DATEV-Datei konnte nicht gelesen werden.'}));
           },
-          error:() => patchState(store,{exporting:false,exportError:'Der DATEV-Export konnte nicht erstellt werden.'})
+          error:(response:any) => { const message=response?.error?.message ?? 'Der DATEV-Export konnte nicht erstellt werden.'; patchState(store,{exporting:false,exportError:message}); toast.error(message); }
         })
       ))
     ))

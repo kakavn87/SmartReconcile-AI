@@ -1,12 +1,14 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ShopifyBridgeService } from '../core/shopify/shopify-bridge.service';
+import { ToastComponent } from '../shared/toast.component';
 
 @Component({
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, ToastComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <app-toast />
     <div class="min-h-screen" [class.shopify-embedded]="shopify.isEmbedded()">
       @if (!shopify.isEmbedded()) {
         <header class="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">

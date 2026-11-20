@@ -4,6 +4,7 @@ import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { pipe, switchMap, tap } from 'rxjs';
 import { tapResponse } from '@ngrx/operators';
 import { ApiService } from '../api/api.service';
+import { ToastService } from '../services/toast.service';
 import { FinancialCaseDetail } from '../models/api.models';
 
 type State = { data:FinancialCaseDetail|null; loading:boolean; actionLoading:boolean; error:string|null; };
@@ -18,7 +19,7 @@ export const CaseDetailStore = signalStore(
     isOpen:computed(() => data()?.status === 'Open' || data()?.status === 'Investigating'),
     hasAnalysis:computed(() => data()?.rootCauseAnalysis.isAvailable === true)
   })),
-  withMethods((store, api=inject(ApiService)) => ({
+  withMethods((store, api=inject(ApiService), toast=inject(ToastService)) => ({
     load:rxMethod<string>(pipe(
       tap(() => patchState(store,{data:null,loading:true,error:null})),
       switchMap(id => api.financialCase(id).pipe(
@@ -29,28 +30,28 @@ export const CaseDetailStore = signalStore(
       tap(() => patchState(store,{actionLoading:true,error:null})),
       switchMap(id => api.investigateCase(id).pipe(
         switchMap(() => api.financialCase(id)),
-        tapResponse({ next:data => patchState(store,{data,actionLoading:false}), error:() => patchState(store,{actionLoading:false,error:'Die KI-Ursachenanalyse konnte nicht durchgeführt werden.'}) })
+        tapResponse({ next:data => { patchState(store,{data,actionLoading:false}); toast.success('KI-Ursachenanalyse abgeschlossen.'); }, error:(response:any) => { const message=response?.error?.message ?? 'Die KI-Ursachenanalyse konnte nicht durchgeführt werden.'; patchState(store,{actionLoading:false,error:message}); toast.error(message); } })
       ))
     )),
     autoFix:rxMethod<string>(pipe(
       tap(() => patchState(store,{actionLoading:true,error:null})),
       switchMap(id => api.autoFixCase(id).pipe(
         switchMap(() => api.financialCase(id)),
-        tapResponse({ next:data => patchState(store,{data,actionLoading:false}), error:() => patchState(store,{actionLoading:false,error:'Die automatische Korrektur konnte nicht ausgeführt werden.'}) })
+        tapResponse({ next:data => { patchState(store,{data,actionLoading:false}); toast.success('Finanzfall erfolgreich aktualisiert.'); }, error:(response:any) => { const message=response?.error?.message ?? 'Die automatische Korrektur konnte nicht ausgeführt werden.'; patchState(store,{actionLoading:false,error:message}); toast.error(message); } })
       ))
     )),
     resolve:rxMethod<{id:string;rootCause:string|null;note:string|null}>(pipe(
       tap(() => patchState(store,{actionLoading:true,error:null})),
       switchMap(request => api.resolveCase(request.id,request.rootCause,request.note).pipe(
         switchMap(() => api.financialCase(request.id)),
-        tapResponse({ next:data => patchState(store,{data,actionLoading:false}), error:() => patchState(store,{actionLoading:false,error:'Der Finanzfall konnte nicht gelöst werden.'}) })
+        tapResponse({ next:data => { patchState(store,{data,actionLoading:false}); toast.success('Finanzfall erfolgreich aktualisiert.'); }, error:(response:any) => { const message=response?.error?.message ?? 'Der Finanzfall konnte nicht gelöst werden.'; patchState(store,{actionLoading:false,error:message}); toast.error(message); } })
       ))
     )),
     ignore:rxMethod<string>(pipe(
       tap(() => patchState(store,{actionLoading:true,error:null})),
       switchMap(id => api.ignoreCase(id).pipe(
         switchMap(() => api.financialCase(id)),
-        tapResponse({ next:data => patchState(store,{data,actionLoading:false}), error:() => patchState(store,{actionLoading:false,error:'Der Finanzfall konnte nicht ignoriert werden.'}) })
+        tapResponse({ next:data => { patchState(store,{data,actionLoading:false}); toast.success('Finanzfall erfolgreich aktualisiert.'); }, error:(response:any) => { const message=response?.error?.message ?? 'Der Finanzfall konnte nicht ignoriert werden.'; patchState(store,{actionLoading:false,error:message}); toast.error(message); } })
       ))
     ))
   }))

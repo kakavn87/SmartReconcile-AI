@@ -3,6 +3,7 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { ApiService } from '../../core/api/api.service';
 import { IntegrationConnection, ShopifySessionInfo } from '../../core/models/api.models';
 import { ShopifyBridgeService } from '../../core/shopify/shopify-bridge.service';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   standalone: true,
@@ -128,6 +129,7 @@ import { ShopifyBridgeService } from '../../core/shopify/shopify-bridge.service'
 export class IntegrationenPage {
   private readonly api = inject(ApiService);
   private readonly shopify = inject(ShopifyBridgeService);
+  private readonly toast = inject(ToastService);
 
   readonly connections = signal<IntegrationConnection[]>([]);
   readonly session = signal<ShopifySessionInfo | null>(null);
@@ -203,10 +205,13 @@ export class IntegrationenPage {
       next: () => {
         this.syncingId.set(null);
         this.load();
+        this.toast.success('Shopify-Synchronisation erfolgreich abgeschlossen.');
       },
-      error: () => {
+      error: (response:any) => {
         this.syncingId.set(null);
-        this.error.set('Shopify-Synchronisation fehlgeschlagen.');
+        const message=response?.error?.message ?? 'Shopify-Synchronisation fehlgeschlagen.';
+        this.error.set(message);
+        this.toast.error(message);
       }
     });
   }
