@@ -32,6 +32,19 @@ public sealed class InvoicesController(IInvoiceService service, IAiAnalysisServi
 
         if (request.InvoiceType == SmartReconcile.Domain.Enums.InvoiceType.Sales && request.OrderId.HasValue)
         {
+            var order = await db.Orders
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.TenantId == tenant.Id && x.Id == request.OrderId.Value, ct);
+
+            if (order is null)
+                return NotFound("Bestellung nicht gefunden.");
+
+            // A cancelled Shopify order must never be manually turned into a new
+            // sales invoice. Cancellation is only reversed by a Stornorechnung
+            // when an original sales invoice already exists.
+            if (order.Status == SmartReconcile.Domain.Enums.OrderStatus.Cancelled)
+                return BadRequest("Für eine stornierte Bestellung kann keine Ausgangsrechnung erstellt werden.");
+
             var existing = await db.Invoices
                 .AsNoTracking()
                 .Where(x => x.TenantId == tenant.Id

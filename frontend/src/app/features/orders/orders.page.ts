@@ -23,7 +23,7 @@ import { ApiService } from '../../core/api/api.service';
           <button type="button" (click)="openInvoice()" class="block w-full rounded-xl bg-slate-50 p-4 text-left font-bold hover:bg-slate-100">
             Rechnung <span class="ml-1">{{selected()!.invoiceNumber}}</span> öffnen
           </button>
-        } @else {
+        } @else if(selected()!.status !== 'Cancelled') {
           <button type="button" (click)="createInvoice(selected()!);$event.stopPropagation()" class="w-full rounded-xl bg-slate-950 p-4 text-left font-bold text-white">+ Rechnung aus Bestellung erzeugen</button>
           <button type="button" (click)="openInvoice()" class="block w-full rounded-xl bg-slate-50 p-4 text-left font-bold hover:bg-slate-100">→ Rechnung öffnen</button>
         }
