@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { AccountingSettingsStore } from '../../core/stores/accounting-settings.store';
 import { ChartOfAccounts, UpdateAccountingSettingsRequest, InvoiceSettings, UpdateInvoiceSettingsRequest } from '../../core/models/api.models';
 import { ApiService } from '../../core/api/api.service';
+import { ToastService } from '../../core/services/toast.service';
 
 @Component({
   standalone:true,
@@ -200,6 +201,7 @@ import { ApiService } from '../../core/api/api.service';
 export class SettingsPage {
   readonly store=inject(AccountingSettingsStore);
   readonly api=inject(ApiService);
+  readonly toast=inject(ToastService);
   readonly invoiceSettings=signal<InvoiceSettings|null>(null);
   readonly invoiceDraft=signal<UpdateInvoiceSettingsRequest>({automaticInvoiceCreationEnabled:true,companyName:'',companyAddress:'',taxNumber:'',vatId:'',bankDetails:''});
   readonly invoiceSaving=signal(false);
@@ -251,9 +253,9 @@ export class SettingsPage {
 
   save():void { this.store.save(this.draft()); }
   setInvoiceField(field:keyof UpdateInvoiceSettingsRequest,value:any):void { this.invoiceDraft.update(current => ({...current,[field]:value})); }
-  saveInvoiceSettings():void { this.invoiceSaving.set(true); this.api.updateInvoiceSettings(this.invoiceDraft()).subscribe({next:data=>{this.invoiceSettings.set(data);this.invoiceSaving.set(false);},error:()=>this.invoiceSaving.set(false)}); }
-  rotateToken():void { this.api.rotateInvoiceAccessToken().subscribe(data=>{this.accessToken.set(data.token);this.liquidSnippet.set(data.liquidSnippet);this.invoiceSettings.update(x=>x?{...x,invoiceAccessTokenLast4:data.tokenLast4,invoiceAccessTokenUpdatedAtUtc:data.updatedAtUtc}:x);}); }
-  copyLiquid():void { navigator.clipboard?.writeText(this.liquidSnippet()); }
+  saveInvoiceSettings():void { this.invoiceSaving.set(true); this.api.updateInvoiceSettings(this.invoiceDraft()).subscribe({next:data=>{this.invoiceSettings.set(data);this.invoiceSaving.set(false);this.toast.success('Einstellungen erfolgreich gespeichert.');},error:(response:any)=>{this.invoiceSaving.set(false);this.toast.error(response?.error?.message ?? 'Die Rechnungseinstellungen konnten nicht gespeichert werden.');}}); }
+  rotateToken():void { this.api.rotateInvoiceAccessToken().subscribe({next:data=>{this.accessToken.set(data.token);this.liquidSnippet.set(data.liquidSnippet);this.invoiceSettings.update(x=>x?{...x,invoiceAccessTokenLast4:data.tokenLast4,invoiceAccessTokenUpdatedAtUtc:data.updatedAtUtc}:x);},error:(response:any)=>this.toast.error(response?.error?.message ?? 'Der Rechnungstoken konnte nicht rotiert werden.')}); }
+  copyLiquid():void { navigator.clipboard?.writeText(this.liquidSnippet()).then(()=>this.toast.success('Liquid-Code in die Zwischenablage kopiert.')).catch(()=>this.toast.error('Der Liquid-Code konnte nicht kopiert werden.')); }
 
   exportDatev():void {
     this.store.exportDatev({from:this.fromDate(),to:this.toDate(),onlyReconciled:this.onlyReconciled()});
