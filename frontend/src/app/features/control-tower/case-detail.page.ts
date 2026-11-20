@@ -30,7 +30,10 @@ import { CaseDetailStore } from '../../core/stores/case-detail.store';
               <span class="rounded-full px-3 py-1 text-xs font-extrabold" [class.bg-red-50]="data.severity==='Critical'||data.severity==='High'" [class.text-red-700]="data.severity==='Critical'||data.severity==='High'" [class.bg-amber-50]="data.severity==='Medium'" [class.text-amber-700]="data.severity==='Medium'" [class.bg-slate-100]="data.severity==='Low'" [class.text-slate-700]="data.severity==='Low'">{{data.severity}}</span>
               <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-extrabold text-blue-700">{{statusLabel(data.status)}}</span>
             </div>
-            <p class="mt-2 text-sm text-slate-500">{{data.title}}</p>
+            <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 p-4" [class.border-l-4]="true" [class.border-l-red-500]="data.severity==='Critical'||data.severity==='High'" [class.border-l-amber-500]="data.severity==='Medium'" [class.border-l-slate-400]="data.severity==='Low'">
+              <div class="text-base font-extrabold leading-6 text-slate-950">{{data.title}}</div>
+              <div class="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{{data.description}}</div>
+            </div>
           </div>
           <div class="text-left lg:text-right">
             <div class="text-xs font-bold uppercase tracking-wide text-slate-400">Betroffener Betrag</div>
