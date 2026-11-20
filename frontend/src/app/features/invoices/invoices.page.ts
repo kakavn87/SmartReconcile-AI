@@ -37,7 +37,7 @@ import { ApiService } from '../../core/api/api.service';
         <label class="block text-sm font-semibold">Rechnungsnummer<input #number [value]="invoiceDraft().invoiceNumber" class="mt-1 w-full rounded-xl border p-3" /></label>
         <div class="grid grid-cols-2 gap-3"><label class="block text-sm font-semibold">Betrag<input #amount [value]="invoiceDraft().amount" type="number" step="0.01" class="mt-1 w-full rounded-xl border p-3" /></label><label class="block text-sm font-semibold">Währung<input #currency [value]="invoiceDraft().currency" maxlength="3" class="mt-1 w-full rounded-xl border p-3" /></label></div>
         <label class="block text-sm font-semibold">Rechnungsdatum<input #date [value]="invoiceDraft().invoiceDate" type="date" class="mt-1 w-full rounded-xl border p-3" /></label>
-        <label class="block text-sm font-semibold">Bestellung (optional)<select #order [disabled]="type.value==='Purchase'" (change)="selectOrder(order.value)" class="mt-1 w-full rounded-xl border p-3"><option value="">Nicht verknüpft (Shopify-Direktabgleich)</option>@for(o of orders.items();track o.id){<option [value]="o.id">{{o.orderNumber}}</option>}</select></label>
+        <label class="block text-sm font-semibold">Bestellung (optional)<select #order [disabled]="type.value==='Purchase'" (change)="selectOrder(order.value)" class="mt-1 w-full rounded-xl border p-3"><option value="">Nicht verknüpft (Shopify-Direktabgleich)</option>@for(o of availableOrders();track o.id){<option [value]="o.id">{{o.orderNumber}}</option>}</select></label>
         <button type="button" (click)="create(type.value,partnerName.value,number.value,+amount.value,currency.value,date.value,type.value==='Sales'?order.value:null)" class="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-extrabold text-white">Rechnung speichern &amp; abstimmen</button>
       </div>
     </aside>}
@@ -89,6 +89,7 @@ export class InvoicesPage {
   partner(x:Invoice){return x.invoiceType==='Sales'?(x.customerName||'—'):(x.supplierName||'—')}
   orderLabel(orderId:string){return this.orders.items().find(x=>x.id===orderId)?.orderNumber ?? orderId}
   typeLabel(x:InvoiceType){return x==='Sales'?'Ausgangsrechnung':'Eingangsrechnung'}
+  availableOrders(){return this.orders.items().filter(o=>o.status!=='Cancelled');}
   selectOrder(orderId:string):void { const order=this.orders.items().find(x=>x.id===orderId); if(!order)return; this.invoiceDraft.set({invoiceNumber:'',partnerName:order.customerName,amount:order.totalAmount,currency:order.currency,invoiceDate:new Date(order.createdAtUtc).toISOString().slice(0,10)}); }
   downloadPdf(invoice:Invoice):void { this.api.invoicePdf(invoice.id).subscribe(blob=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`Rechnung-${invoice.invoiceNumber}.pdf`;a.click();URL.revokeObjectURL(url);}); }
   create(type:string,partner:string,number:string,amount:number,currency:string,date:string,orderId:string|null){
